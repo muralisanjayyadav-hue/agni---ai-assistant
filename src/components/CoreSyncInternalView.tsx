@@ -31,6 +31,24 @@ export const CoreSyncInternalView: React.FC<CoreSyncInternalViewProps> = ({ onBa
   const [showAddForm, setShowAddForm] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Privacy toggle "Allow my thoughts to be shared" default ON
+  const [allowThoughtsShared, setAllowThoughtsShared] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('agni_allow_thoughts_shared');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleAllowThoughts = (val: boolean) => {
+    setAllowThoughtsShared(val);
+    try {
+      localStorage.setItem('agni_allow_thoughts_shared', String(val));
+    } catch {}
+    showToast(val ? 'Thoughts sharing enabled' : 'Thoughts sharing paused');
+  };
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -237,6 +255,20 @@ export const CoreSyncInternalView: React.FC<CoreSyncInternalViewProps> = ({ onBa
         </form>
       )}
 
+      {/* Privacy toggle "Allow my thoughts to be shared" default ON */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 mb-4 bg-neutral-950 border border-neutral-900 rounded-xl">
+        <span className="text-[11px] text-neutral-300 font-mono">Allow my thoughts to be shared</span>
+        <button
+          type="button"
+          onClick={() => handleToggleAllowThoughts(!allowThoughtsShared)}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${allowThoughtsShared ? 'bg-amber-500' : 'bg-neutral-800'}`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${allowThoughtsShared ? 'translate-x-4' : 'translate-x-0'}`}
+          />
+        </button>
+      </div>
+
       {/* Search & Filter */}
       <div className="flex gap-2 mb-4">
         <input
@@ -244,54 +276,52 @@ export const CoreSyncInternalView: React.FC<CoreSyncInternalViewProps> = ({ onBa
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter..."
-          className="flex-1 px-3 py-1.5 bg-neutral-950 border border-neutral-900 rounded text-neutral-300"
+          className="flex-1 px-3 py-1.5 bg-neutral-950 border border-neutral-900 rounded text-neutral-300 font-mono text-xs"
         />
         <select
           value={speakerFilter}
           onChange={(e) => setSpeakerFilter(e.target.value)}
-          className="px-3 py-1.5 bg-neutral-950 border border-neutral-900 rounded text-neutral-400"
+          className="px-3 py-1.5 bg-neutral-950 border border-neutral-900 rounded text-neutral-400 font-mono text-xs"
         >
-          <option value="all">All Speakers</option>
+          <option value="all">All</option>
           <option value="sanjay">Sanjay</option>
           <option value="hasini">Hasini</option>
         </select>
       </div>
 
-      {/* Real Firestore Data Table */}
+      {/* Real Firestore Data Table: Date | From | About | Note */}
       <div className="border border-neutral-900 rounded-xl overflow-hidden bg-neutral-950">
-        <table className="w-full text-left">
-          <thead className="bg-neutral-900 text-neutral-500 text-[10px] uppercase">
+        <table className="w-full text-left font-mono">
+          <thead className="bg-neutral-900 text-neutral-400 text-[10px] uppercase tracking-wider">
             <tr>
-              <th className="px-3 py-2">ID</th>
-              <th className="px-3 py-2">Speaker</th>
-              <th className="px-3 py-2">About</th>
-              <th className="px-3 py-2">Memory Text</th>
-              <th className="px-3 py-2">Timestamp</th>
-              <th className="px-3 py-2 text-right">Action</th>
+              <th className="px-3 py-2.5">Date</th>
+              <th className="px-3 py-2.5">From</th>
+              <th className="px-3 py-2.5">About</th>
+              <th className="px-3 py-2.5">Note</th>
+              <th className="px-3 py-2.5 text-right w-10"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-900 text-[11px]">
             {filteredDocs.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-8 text-neutral-600">
-                  {loading ? 'Fetching from Firestore cloud...' : 'No documents in founder_core_sync'}
+                <td colSpan={5} className="text-center py-8 text-neutral-600">
+                  {loading ? 'Fetching from Firestore cloud...' : 'No records found'}
                 </td>
               </tr>
             ) : (
               filteredDocs.map((doc) => (
                 <tr key={doc.id} className="hover:bg-neutral-900/50">
-                  <td className="px-3 py-2 text-neutral-600 font-mono">{doc.id.slice(0, 10)}...</td>
-                  <td className="px-3 py-2 text-neutral-300 font-bold">{doc.speaker}</td>
-                  <td className="px-3 py-2 text-amber-500 font-bold">{doc.aboutWhom}</td>
-                  <td className="px-3 py-2 text-white max-w-md break-words">{doc.memoryText}</td>
-                  <td className="px-3 py-2 text-neutral-500 font-mono">
-                    {new Date(doc.timestamp).toLocaleString()}
+                  <td className="px-3 py-2 text-neutral-500 whitespace-nowrap">
+                    {new Date(doc.timestamp).toLocaleDateString()} {new Date(doc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </td>
+                  <td className="px-3 py-2 text-neutral-200 font-bold">{doc.speaker}</td>
+                  <td className="px-3 py-2 text-amber-500 font-bold">{doc.aboutWhom}</td>
+                  <td className="px-3 py-2 text-neutral-300 max-w-md break-words">{doc.memoryText}</td>
                   <td className="px-3 py-2 text-right">
                     <button
                       onClick={() => handleDelete(doc.id)}
                       className="p-1 rounded text-neutral-500 hover:text-red-400 hover:bg-neutral-900 transition-colors"
-                      title="Delete from Firestore"
+                      title="Delete"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

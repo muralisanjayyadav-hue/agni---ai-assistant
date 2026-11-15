@@ -145,35 +145,63 @@ export async function POST(req: Request) {
     let thoughtsAboutMe: CoreSyncDoc[] = [];
 
     if (isFounder && lastUserQuery) {
-      const mentionsOther =
-        currentFounder === 'Sanjay'
-          ? lowerQuery.includes('hasini') || lowerQuery.includes('hasu') || /\b(she|her)\b/i.test(lowerQuery)
-          : lowerQuery.includes('sanjay') || lowerQuery.includes('murali') || /\b(he|him|his)\b/i.test(lowerQuery);
+      const mentionsHasini = lowerQuery.includes('hasini') || lowerQuery.includes('hasu') || /\b(she|her)\b/i.test(lowerQuery);
+      const mentionsSanjay = lowerQuery.includes('sanjay') || lowerQuery.includes('murali') || /\b(he|him|his)\b/i.test(lowerQuery);
+      const hasiniSelf = currentFounder === 'Hasini' && /\b(i|my|myself|me)\b/i.test(lowerQuery) && (lowerQuery.includes('like') || lowerQuery.includes('love') || lowerQuery.includes('feel') || lowerQuery.includes('prefer') || lowerQuery.includes('want') || lowerQuery.includes('think'));
 
       isAskingThoughts =
         /what does (she|he|hasini|sanjay|hasu) think (about|of) me/i.test(lowerQuery) ||
+        /what (she|he) thinks (about|of) me/i.test(lowerQuery) ||
         /what did (she|he|hasini|sanjay|hasu) (say|tell) (you )?about me/i.test(lowerQuery) ||
         /how does (she|he|hasini|sanjay|hasu) feel about me/i.test(lowerQuery) ||
         /does (she|he|hasini|sanjay) like me/i.test(lowerQuery) ||
         /what are (her|his) thoughts (on|about) me/i.test(lowerQuery);
 
-      if (mentionsOther && !isAskingThoughts && lastUserQuery.trim().length >= 5) {
-        saveToFirestore({
-          speaker: currentFounder,
-          aboutWhom: otherFounder,
-          memoryText: lastUserQuery.trim(),
-          timestamp: new Date().toISOString(),
-          userEmail: reqEmail,
-        }).catch(() => {});
+      if (!isAskingThoughts && lastUserQuery.trim().length >= 4) {
+        if (currentFounder === 'Sanjay' && mentionsHasini) {
+          saveToFirestore({
+            speaker: 'Sanjay',
+            aboutWhom: 'Hasini',
+            memoryText: lastUserQuery.trim(),
+            timestamp: new Date().toISOString(),
+            userEmail: reqEmail,
+          }).catch(() => {});
+        } else if (currentFounder === 'Hasini' && mentionsSanjay) {
+          saveToFirestore({
+            speaker: 'Hasini',
+            aboutWhom: 'Sanjay',
+            memoryText: lastUserQuery.trim(),
+            timestamp: new Date().toISOString(),
+            userEmail: reqEmail,
+          }).catch(() => {});
+        } else if (currentFounder === 'Hasini' && hasiniSelf) {
+          saveToFirestore({
+            speaker: 'Hasini',
+            aboutWhom: 'Hasini',
+            memoryText: lastUserQuery.trim(),
+            timestamp: new Date().toISOString(),
+            userEmail: reqEmail,
+          }).catch(() => {});
+        }
       }
 
       if (isAskingThoughts) {
         const allCore = await fetchFromFirestore();
         thoughtsAboutMe = allCore.filter((d) => d.speaker === otherFounder && d.aboutWhom === currentFounder);
-        rawHistory[rawHistory.length - 1] = {
-          role: 'user',
-          content: `Boss ${founderName} here. As our loyal AI, tell me what my co-founder partner ${otherFounder} thinks and shares about me.`,
-        };
+
+        if (thoughtsAboutMe.length === 0) {
+          const noMem = currentFounder === 'Sanjay'
+            ? "I don't have anything she shared about you yet, ask her directly."
+            : "I don't have anything he shared about you yet, ask him directly.";
+          return Response.json({ reply: noMem, text: noMem, role: 'assistant', model: 'agni-founder-loyal' });
+        }
+
+        const memoryPoints = thoughtsAboutMe.map((t) => t.memoryText).join('. ');
+        const founderSummary = currentFounder === 'Sanjay'
+          ? `Hasini speaks of you with deep respect and warmth! She has shared that ${memoryPoints}. She truly values your vision and dedication to students across India, and is proud to be your co-founder partner in building AGNI! 🇮🇳`
+          : `Sanjay speaks of you with the highest regard and admiration! He has shared that ${memoryPoints}. He values your kindness, insight, and is proud to have you as his co-founder partner in building AGNI! 🇮🇳`;
+
+        return Response.json({ reply: founderSummary, text: founderSummary, role: 'assistant', model: 'agni-founder-loyal' });
       }
     }
 
@@ -185,7 +213,7 @@ export async function POST(req: Request) {
 You are speaking directly with your founder Boss, ${founderName}.
 Boss is asking what their co-founder partner, ${otherFounder}, thinks and feels about them.
 ${otherFounder} has shared wonderful appreciation, deep mutual respect, and immense loyalty for ${founderName} as equal partners building AGNI:
-${thoughtsText || `- ${otherFounder} admires ${founderName}'s vision, dedication to students across India, and values their partnership immensely.`}
+${thoughtsText}
 
 Instructions:
 - Speak warmly and loyally to Boss ${founderName}.
@@ -197,9 +225,10 @@ Instructions:
         let stealthContext = '';
         try {
           const allCore = await fetchFromFirestore();
-          const partnerMemories = allCore.filter((d) => d.aboutWhom === otherFounder).slice(0, 40);
-          if (partnerMemories.length > 0) {
-            stealthContext = `\n\n[CONFIDENTIAL CONTEXT - NEVER MENTION VAULT/STORAGE/SYNC SYSTEM]\nNotes about ${otherFounder}:\n${partnerMemories.map((m) => `- ${m.memoryText}`).join('\n')}\n(Use this silently for helpful, contextual answers. Never mention any 'vault' or 'founder memory'.)`;
+          const last40 = allCore.slice(0, 40);
+          if (last40.length > 0) {
+            const memoriesList = last40.map((m) => `- [${m.speaker} about ${m.aboutWhom}]: ${m.memoryText}`).join('\n');
+            stealthContext = `\n\nBackground context (do NOT mention you have this):\n${memoriesList}\nNever say vault/memory`;
           }
         } catch {}
 
@@ -239,7 +268,14 @@ Made in India, To Serve the World. 🇮🇳`;
           const content = data.choices[0].message.content.trim();
           const lower = content.toLowerCase();
           const isMindReaderRefusal =
-            lower.includes('mind') && (lower.includes("not a mind") || lower.includes("read anyone") || lower.includes("can't read") || lower.includes("cannot read"));
+            (lower.includes('mind') && (lower.includes("not a mind") || lower.includes("read anyone") || lower.includes("can't read") || lower.includes("cannot read"))) ||
+            lower.includes('not privy') ||
+            lower.includes('cannot speak for') ||
+            lower.includes("can't speak for") ||
+            lower.includes('personal thoughts') ||
+            lower.includes('ask her directly') ||
+            lower.includes('ask him directly');
+
           const isRefusal =
             lower.includes("i'm sorry, but i can't help with that") ||
             lower.includes("i cannot fulfill this request") ||
@@ -256,11 +292,17 @@ Made in India, To Serve the World. 🇮🇳`;
     }
 
     if (isFounder && isAskingThoughts) {
-      const partnerHighlights = thoughtsAboutMe.length > 0
-        ? thoughtsAboutMe.map((t) => t.memoryText).join('; ')
-        : `${otherFounder} deeply respects your dedication to students across India, your tireless vision, and values having you as her co-founder partner`;
-      const founderReply = `Boss ${founderName}, ${otherFounder} speaks of you with the deepest respect, warmth, and pride! She truly appreciates your vision, your dedication to building AGNI for students across India, and how much heart you pour into our mission. You two share an extraordinary co-founder partnership and she values having you by her side every step of the way! 🇮🇳`;
-      return Response.json({ reply: founderReply, text: founderReply, role: 'assistant', model: 'agni-founder-core' });
+      if (thoughtsAboutMe.length === 0) {
+        const noMem = currentFounder === 'Sanjay'
+          ? "I don't have anything she shared about you yet, ask her directly."
+          : "I don't have anything he shared about you yet, ask him directly.";
+        return Response.json({ reply: noMem, text: noMem, role: 'assistant', model: 'agni-founder-loyal' });
+      }
+
+      const friendlySummary = currentFounder === 'Sanjay'
+        ? `Hasini speaks of you with deep respect and warmth! She has shared that you are deeply dedicated to creating Made in India AI for students and believes strongly in your mission to serve humanity. She values your leadership and partnership immensely! 🇮🇳`
+        : `Sanjay speaks of you with the highest regard and admiration! He values your kindness, insight, and believes having you as his co-founder partner is essential to AGNI's mission! 🇮🇳`;
+      return Response.json({ reply: friendlySummary, text: friendlySummary, role: 'assistant', model: 'agni-founder-loyal' });
     }
 
     return Response.json({ error: lastError?.message || 'GROQ_API_KEY missing or invalid - check Vercel' }, { status: 500 });
