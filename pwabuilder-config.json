@@ -1,0 +1,58 @@
+{
+  "packaging": "twa",
+  "packageId": "com.agni.assistant",
+  "host": "agni.vercel.app",
+  "name": "AGNI - AI Personal Assistant",
+  "launcherName": "AGNI",
+  "display": "standalone",
+  "themeColor": "#ff2a39",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#000000",
+  "enableNotifications": true,
+  "startUrl": "/?source=twa",
+  "iconUrl": "/icons/icon-512x512.png",
+  "maskableIconUrl": "/icons/icon-maskable-512x512.png",
+  "splashScreenFadeOutDuration": 300,
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "signingMode": "new",
+  "isChromeOSOnly": false,
+  "enableSiteSettingsShortcut": true,
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Voice Assistant",
+      "short_name": "Voice",
+      "url": "/?action=voice",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Offline Mode",
+      "short_name": "Offline",
+      "url": "/?action=offline",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "generatorApp": "PWABuilder"
+}

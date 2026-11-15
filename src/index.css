@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600&display=swap');
+@import "tailwindcss";
+
+* {
+  font-family: 'Inter', system-ui, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: 'Poppins', 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+}
+
+.font-mono {
+  font-family: 'Inter', sans-serif !important;
+}
+
+button, input, select {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 14px !important;
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+.font-display {
+  font-family: 'Poppins', 'Inter', sans-serif;
+}
+
+/* ============================================
+   AGNI V11 - Android Mobile Responsive Fixes
+   Prevents header overlap, font cutoff, overflow
+   ============================================ */
+
+/* Prevent horizontal overflow globally */
+html, body {
+  width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box !important;
+}
+
+/* Android mobile header compact layout */
+@media (max-width: 480px) {
+  header, .header {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  
+  /* Keep language select compact */
+  #header-language-select {
+    max-width: 110px !important;
+    min-width: 80px !important;
+    font-size: 11px !important;
+  }
+  
+  /* Compact Founder text below AGNI brand */
+  .font-display {
+    font-size: 18px !important;
+  }
+}
+
+/* Ensure account menu dropdown doesn't overflow screen on Android */
+@media (max-width: 380px) {
+  #header-language-select {
+    display: none !important;
+  }
+}
+
+/* Safe area for Android bottom navigation bar */
+.jarvis-bottom-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px) !important;
+  margin-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+/* Prevent mic button from overlapping Android nav bar */
+@media (max-width: 768px) {
+  .fixed.bottom-4, .fixed.bottom-6, .fixed.bottom-8 {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Exact user overrides for Android devices */
+@media (max-width: 768px) {
+  header, .header, [class*="Header"] {
+    padding: 8px 12px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+  }
+  .made-in-india, [class*="Made"] {
+    display: none !important;
+  }
+  select {
+    max-width: 120px !important;
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+  }
+  .agni-logo, img[alt="AGNI"] {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  h1 {
+    font-size: 18px !important;
+  }
+  [style*="width:300px"] {
+    width: 90vw !important;
+    max-width: 300px !important;
+    right: -10px !important;
+  }
+  .mic-button, [class*="mic"] {
+    margin-bottom: 20px !important;
+  }
+  body {
+    padding-top: 0 !important;
+    overflow-x: hidden !important;
+  }
+}
+
+/* Small screen Android header responsive adjustments */
+@media (max-width: 380px) {
+  header { padding: 10px 12px !important; }
+  header span { font-size: 10px !important; }
+}
+
+/* Hide horizontal scrollbar on navigation tabs */
+::-webkit-scrollbar {
+  display: none !important;
+}

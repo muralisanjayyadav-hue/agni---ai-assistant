@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>AGNI - AI Personal Assistant</title>
+    <meta name="description" content="AGNI - Made in India AI Personal Assistant. Multimodal neural intelligence with voice, vision, student learning mode, search, documents, and memory." />
+    
+    <!-- PWA & Mobile Web App Meta -->
+    <meta name="theme-color" content="#ff2a39" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AGNI" />
+    <meta name="application-name" content="AGNI" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-TileColor" content="#000000" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+    <meta name="msapplication-config" content="none" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/logo.png" color="#ff2a39" />
+
+    <!-- TWA: Full-screen immersive mode (no browser bar) -->
+    <meta name="full-screen" content="yes" />
+    <meta name="browsermode" content="application" />
+
+    <!-- Open Graph Meta -->
+    <meta property="og:title" content="AGNI - AI Personal Assistant" />
+    <meta property="og:description" content="AGNI - Made in India AI Personal Assistant. Multimodal neural intelligence with voice, vision, student learning mode, search, documents, and memory." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <!-- Instant Native Splash Screen Styles (Runs before JS) -->
+    <style>
+      #agni-initial-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #000000;
+        color: #ffffff;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        transition: opacity 0.4s ease-out, visibility 0.4s ease-out;
+      }
+      .agni-splash-flame-wrapper {
+        position: relative;
+        width: 108px;
+        height: 108px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .agni-splash-flame-glow {
+        position: absolute;
+        inset: -14px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 42, 57, 0.45) 0%, rgba(255, 122, 0, 0.15) 60%, transparent 80%);
+        filter: blur(14px);
+        animation: agniGlowPulse 2s ease-in-out infinite alternate;
+      }
+      .agni-splash-logo {
+        position: relative;
+        width: 96px;
+        height: 96px;
+        z-index: 1;
+        border-radius: 20px;
+        filter: drop-shadow(0 0 20px rgba(255, 42, 57, 0.8));
+      }
+      .agni-splash-title {
+        margin-top: 20px;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        background: linear-gradient(135deg, #ff9100 0%, #ff3d00 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .agni-splash-subtitle {
+        margin-top: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+      .agni-splash-progress {
+        margin-top: 28px;
+        width: 140px;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .agni-splash-progress-bar {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff3d00, #ff9100);
+        animation: agniLoading 1.4s ease-in-out infinite;
+      }
+      @keyframes agniGlowPulse {
+        0% { transform: scale(0.9); opacity: 0.5; }
+        100% { transform: scale(1.15); opacity: 0.95; }
+      }
+      @keyframes agniLoading {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+    </style>
+  </head>
+  <body class="bg-neutral-950 text-neutral-100 antialiased selection:bg-orange-500/30 selection:text-orange-200">
+    <!-- Immediate Native Splash Screen -->
+    <div id="agni-initial-splash">
+      <div class="agni-splash-flame-wrapper">
+        <div class="agni-splash-flame-glow"></div>
+        <img src="/logo.png" alt="AGNI Official Logo" class="agni-splash-logo" />
+      </div>
+      <div class="agni-splash-title">AGNI</div>
+      <div class="agni-splash-subtitle">Made in India • AI Assistant</div>
+      <div class="agni-splash-progress">
+        <div class="agni-splash-progress-bar"></div>
+      </div>
+    </div>
+
+    <div id="root"></div>
+
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Dismiss splash smoothly once window is loaded and app initialized
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          const splash = document.getElementById('agni-initial-splash');
+          if (splash) {
+            splash.style.opacity = '0';
+            splash.style.visibility = 'hidden';
+            setTimeout(() => splash.remove(), 400);
+          }
+        }, 350);
+      });
+    </script>
+  </body>
+</html>

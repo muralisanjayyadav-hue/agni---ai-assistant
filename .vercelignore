@@ -1,0 +1,3 @@
+# Exclude Android build directories from Vercel deployment
+android/
+node_modules/

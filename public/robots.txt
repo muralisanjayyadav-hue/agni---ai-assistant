@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /jarvis
+Disallow: /jarvis/
+Allow: /
