@@ -55,11 +55,19 @@
   ],
   "rewrites": [
     {
+      "source": "/core-sync-internal(.*)",
+      "destination": "/api/not-found"
+    },
+    {
+      "source": "/core-sync(.*)",
+      "destination": "/api/not-found"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

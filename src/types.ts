@@ -20,8 +20,7 @@ export type TabMode =
   | 'my_voice'
   | 'parent_dashboard'
   | 'founder_analytics'
-  | 'founder_panel'
-  | 'core_sync_internal';
+  | 'founder_panel';
 
 export interface AuthUser {
   id: string;
@@ -58,6 +57,16 @@ export interface FounderFeedback {
   tag?: string;
 }
 
+export interface MediaAttachment {
+  id: string;
+  url: string;
+  type: 'image' | 'video';
+  mimeType: string;
+  name?: string;
+  size?: number;
+  thumbnailUrl?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -65,6 +74,10 @@ export interface ChatMessage {
   timestamp: string;
   sources?: { title: string; url: string }[];
   isSpeaking?: boolean;
+  attachments?: MediaAttachment[];
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  thumbnailUrl?: string;
 }
 
 export interface ChatSession {

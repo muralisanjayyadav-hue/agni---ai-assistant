@@ -803,6 +803,12 @@ const GROQ_MODELS = [
   'openai/gpt-oss-20b',
 ];
 
+const GROQ_VISION_MODELS = [
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'qwen/qwen3.8-27b',
+  'qwen/qwen3-32b',
+];
+
 // ── Public Routes ──────────────────────────────────────────────────────────
 
 app.get(['/api/health', '/health'], async (_req: Request, res: Response) => {
@@ -1040,11 +1046,67 @@ Made in India, To Serve the World. 🇮🇳`;
       sysPrompt += '\n\nUser prefers Tamil. Reply in Tamil + English mix (Tanglish).';
     }
 
-    const preferredModel = db.remote_config.model || 'openai/gpt-oss-120b';
-    const modelsToTry = [
-      preferredModel,
-      ...GROQ_MODELS.filter((m) => m !== preferredModel),
-    ];
+    // Extract media/images for Vision processing
+    const rawImages: string[] = [];
+    if (Array.isArray(req.body.images)) {
+      for (const img of req.body.images) {
+        if (typeof img === 'string' && img.trim()) rawImages.push(img.trim());
+      }
+    }
+    if (Array.isArray(req.body.attachments)) {
+      for (const att of req.body.attachments) {
+        if (att && typeof att.thumbnailUrl === 'string' && att.thumbnailUrl.trim()) {
+          rawImages.push(att.thumbnailUrl.trim());
+        } else if (att && typeof att.url === 'string' && att.url.trim()) {
+          rawImages.push(att.url.trim());
+        }
+      }
+    }
+    if (typeof req.body.thumbnailUrl === 'string' && req.body.thumbnailUrl.trim()) {
+      rawImages.push(req.body.thumbnailUrl.trim());
+    } else if (typeof req.body.mediaUrl === 'string' && req.body.mediaUrl.trim()) {
+      rawImages.push(req.body.mediaUrl.trim());
+    }
+    if (typeof req.body.imageBase64 === 'string' && req.body.imageBase64.trim()) {
+      const formatted = req.body.imageBase64.startsWith('data:')
+        ? req.body.imageBase64.trim()
+        : `data:image/jpeg;base64,${req.body.imageBase64.trim()}`;
+      rawImages.push(formatted);
+    }
+
+    const uniqueImages = Array.from(new Set(rawImages)).slice(0, 5);
+    const isVision = uniqueImages.length > 0;
+
+    let finalHistory: any[] = [];
+    if (isVision) {
+      const prev = history.slice(0, -1);
+      const contentParts: any[] = [
+        { type: 'text', text: lastUserQuery || 'Please describe and analyze this media in detail.' },
+      ];
+      for (const img of uniqueImages) {
+        contentParts.push({
+          type: 'image_url',
+          image_url: { url: img },
+        });
+      }
+      finalHistory = [
+        ...prev,
+        { role: 'user', content: contentParts },
+      ];
+    } else {
+      finalHistory = [...history];
+    }
+
+    const preferredModel = isVision
+      ? GROQ_VISION_MODELS[0]
+      : (db.remote_config.model || 'openai/gpt-oss-120b');
+
+    const modelsToTry = isVision
+      ? [...GROQ_VISION_MODELS, ...GROQ_MODELS]
+      : [
+          preferredModel,
+          ...GROQ_MODELS.filter((m) => m !== preferredModel),
+        ];
 
     const temperature = typeof db.remote_config.temperature === 'number'
       ? db.remote_config.temperature
@@ -1056,12 +1118,13 @@ Made in India, To Serve the World. 🇮🇳`;
 
     for (const model of modelsToTry) {
       try {
+        const messagesForModel = (isVision && GROQ_VISION_MODELS.includes(model))
+          ? [ { role: 'system', content: sysPrompt }, ...finalHistory ]
+          : [ { role: 'system', content: sysPrompt }, ...history ];
+
         const completion = await groq.chat.completions.create({
           model,
-          messages: [
-            { role: 'system', content: sysPrompt },
-            ...history,
-          ],
+          messages: messagesForModel,
           max_tokens: 2048,
           temperature,
         });
@@ -1634,6 +1697,10 @@ app.post('/api/founder/core-sync/delete', async (req: Request, res: Response) =>
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Failed to delete core sync doc' });
   }
+});
+
+app.all(['/api/not-found', '/core-sync-internal', '/core-sync-internal/*', '/core-sync', '/core-sync/*'], (_req: Request, res: Response) => {
+  res.status(404).send('404 Not Found');
 });
 
 app.all('/api/*', (_req: Request, res: Response) => {

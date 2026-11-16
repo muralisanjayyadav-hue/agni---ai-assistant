@@ -15,6 +15,12 @@ const GROQ_MODELS = [
   'openai/gpt-oss-20b',
 ];
 
+const GROQ_VISION_MODELS = [
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'qwen/qwen3.8-27b',
+  'qwen/qwen3-32b',
+];
+
 const GOLD_FOUNDERS = ['muralisanjayyadav@gmail.com', 'itzmehasu94444@gmail.com'];
 const FOUNDER_NAMES: Record<string, string> = {
   'muralisanjayyadav@gmail.com': 'M. Sanjay',
@@ -235,12 +241,103 @@ Speak English by default, but if Boss speaks Tamil, reply in Tamil + English mix
 Made in India, To Serve the World. 🇮🇳`;
   }
 
+  // Extract media/images for Vision processing (supports jpg, jpeg, png, webp, and first frame of video)
+  const rawImages: string[] = [];
+  if (Array.isArray(body.images)) {
+    for (const img of body.images) {
+      if (typeof img === 'string' && img.trim()) rawImages.push(img.trim());
+    }
+  }
+  if (Array.isArray(body.attachments)) {
+    for (const att of body.attachments) {
+      if (att && typeof att.thumbnailUrl === 'string' && att.thumbnailUrl.trim()) {
+        rawImages.push(att.thumbnailUrl.trim());
+      } else if (att && typeof att.url === 'string' && att.url.trim()) {
+        rawImages.push(att.url.trim());
+      }
+    }
+  }
+  if (typeof body.thumbnailUrl === 'string' && body.thumbnailUrl.trim()) {
+    rawImages.push(body.thumbnailUrl.trim());
+  } else if (typeof body.mediaUrl === 'string' && body.mediaUrl.trim()) {
+    rawImages.push(body.mediaUrl.trim());
+  }
+  if (typeof body.imageBase64 === 'string' && body.imageBase64.trim()) {
+    const formatted = body.imageBase64.startsWith('data:')
+      ? body.imageBase64.trim()
+      : `data:image/jpeg;base64,${body.imageBase64.trim()}`;
+    rawImages.push(formatted);
+  }
+
+  const uniqueImages = Array.from(new Set(rawImages)).slice(0, 5);
+  const isVision = uniqueImages.length > 0;
+
+  // Build Groq message history
+  let groqHistory: Array<{ role: 'user' | 'assistant'; content: any }> = [];
+  if (isVision) {
+    const previousHistory = rawHistory.slice(0, -1);
+    const contentParts: any[] = [
+      { type: 'text', text: lastUserQuery || 'Please analyze this media in detail.' },
+    ];
+    for (const img of uniqueImages) {
+      contentParts.push({
+        type: 'image_url',
+        image_url: { url: img },
+      });
+    }
+    groqHistory = [
+      ...previousHistory,
+      { role: 'user', content: contentParts },
+    ];
+  } else {
+    groqHistory = [...rawHistory];
+  }
+
   const messages = [
     { role: 'system', content: sysPrompt },
-    ...rawHistory,
+    ...groqHistory,
   ];
 
   let lastError: any = null;
+
+  // 1. If media/images attached, try Groq Vision models first (meta-llama/llama-4-scout-17b-16e-instruct, qwen/qwen3.8-27b)
+  if (isVision) {
+    for (const model of GROQ_VISION_MODELS) {
+      try {
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.7,
+            max_tokens: 2048,
+          }),
+        });
+
+        const data = await groqRes.json();
+        if (groqRes.ok && data.choices?.[0]?.message?.content) {
+          const content = data.choices[0].message.content.trim();
+          if (content) {
+            return res.status(200).json({
+              reply: content,
+              text: content,
+              role: 'assistant',
+              content,
+              model,
+            });
+          }
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+  }
+
+  // 2. Standard Groq Text models (also used as resilient fallback)
   for (const model of GROQ_MODELS) {
     try {
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -251,7 +348,10 @@ Made in India, To Serve the World. 🇮🇳`;
         },
         body: JSON.stringify({
           model,
-          messages,
+          messages: [
+            { role: 'system', content: sysPrompt },
+            ...rawHistory,
+          ],
           temperature: 0.7,
           max_tokens: 2048,
         }),

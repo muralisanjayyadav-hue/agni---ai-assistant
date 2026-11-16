@@ -25,12 +25,18 @@ import {
   HeartHandshake,
   ShieldCheck,
   LifeBuoy,
+  X,
+  Maximize2,
+  Film,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { ChatMessage, UserPreferences, StoredMemory, ChatSession, AuthUser } from '../types';
+import { ChatMessage, UserPreferences, StoredMemory, ChatSession, AuthUser, MediaAttachment } from '../types';
 import { MarkdownView } from './MarkdownView';
 import { ChatHistoryDrawer } from './ChatHistoryDrawer';
 import { makePDF, makePPT } from '../utils/agniFileMaker';
 import { ShareAudioSnippetModal } from './ShareAudioSnippetModal';
+import { MediaUploadModal } from './MediaUploadModal';
+import { ProcessedMediaFile, uploadToFirebaseStorage } from '../utils/firebaseStorage';
 import { checkChatRateLimit, sanitizePlainInput } from '../utils/security';
 import { getLanguageOption } from '../data/languages';
 import {
@@ -44,7 +50,7 @@ import {
 
 interface ChatViewProps {
   messages: ChatMessage[];
-  onSendMessage: (text: string) => Promise<void>;
+  onSendMessage: (text: string, attachments?: MediaAttachment[]) => Promise<void>;
   onRetryLastMessage?: () => Promise<void>;
   onClearMessages: () => void;
   isLoading: boolean;
@@ -86,6 +92,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [snippetToShare, setSnippetToShare] = useState<string | null>(null);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [stagedAttachments, setStagedAttachments] = useState<ProcessedMediaFile[]>([]);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [zoomMediaUrl, setZoomMediaUrl] = useState<string | null>(null);
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('agni_bookmarked_ids');
@@ -211,7 +221,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputText.trim() || isLoading) return;
+    if ((!inputText.trim() && stagedAttachments.length === 0) || isLoading || isUploadingMedia) return;
 
     // Rate Limiter: Max 10 messages per minute
     const rateCheck = checkChatRateLimit();
@@ -221,12 +231,45 @@ export const ChatView: React.FC<ChatViewProps> = ({
       return;
     }
 
-    const textToSend = sanitizePlainInput(inputText.trim());
-    try {
-      localStorage.setItem('lastUserMessage', textToSend);
-    } catch {}
+    const textToSend = inputText.trim() ? sanitizePlainInput(inputText.trim()) : '';
+    const attachmentsToUpload = [...stagedAttachments];
+    setStagedAttachments([]);
     setInputText('');
-    await onSendMessage(textToSend);
+
+    let uploadedAttachments: MediaAttachment[] | undefined = undefined;
+
+    if (attachmentsToUpload.length > 0) {
+      setIsUploadingMedia(true);
+      try {
+        uploadedAttachments = [];
+        for (const item of attachmentsToUpload) {
+          // Upload to Firebase Storage agni_vision_uploads/{email}/{time}.jpg
+          const cloudUrl = await uploadToFirebaseStorage(
+            item.thumbnailUrl || item.dataUrl,
+            authUser?.email
+          );
+          uploadedAttachments.push({
+            id: item.id,
+            url: cloudUrl || item.dataUrl,
+            type: item.type,
+            mimeType: item.mimeType,
+            name: item.name,
+            size: item.size,
+            thumbnailUrl: item.thumbnailUrl,
+          });
+        }
+      } catch (err) {
+        console.warn('Error uploading media to storage, proceeding with local URLs', err);
+      } finally {
+        setIsUploadingMedia(false);
+      }
+    }
+
+    try {
+      localStorage.setItem('lastUserMessage', textToSend || (uploadedAttachments?.length ? 'Uploaded media attachment' : ''));
+    } catch {}
+
+    await onSendMessage(textToSend, uploadedAttachments);
   };
 
   const handleCopy = (text: string, id: string) => {
@@ -509,6 +552,72 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       : 'border border-neutral-200 bg-white text-neutral-800 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 rounded-tl-sm'
                   }`}
                 >
+                  {/* Uploaded Media Bubble (Images & Videos) */}
+                  {msg.attachments && msg.attachments.length > 0 ? (
+                    <div className="mb-2.5 grid gap-2 grid-cols-1 sm:grid-cols-2">
+                      {msg.attachments.map((att) => (
+                        <div
+                          key={att.id}
+                          className="relative group overflow-hidden rounded-xl border border-neutral-700/60 bg-black/40"
+                        >
+                          {att.type === 'video' ? (
+                            <video
+                              src={att.url}
+                              poster={att.thumbnailUrl}
+                              controls
+                              playsInline
+                              className="w-full max-h-64 rounded-xl object-contain bg-black"
+                            />
+                          ) : (
+                            <div
+                              className="relative cursor-pointer overflow-hidden"
+                              onClick={() => setZoomMediaUrl(att.url)}
+                            >
+                              <img
+                                src={att.url}
+                                alt={att.name || 'Uploaded attachment'}
+                                className="w-full max-h-64 rounded-xl object-cover hover:scale-[1.02] transition-transform duration-200"
+                              />
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white flex items-center gap-1 font-semibold">
+                                  <Maximize2 className="h-3 w-3" /> Zoom
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : msg.mediaUrl ? (
+                    <div className="mb-2.5 overflow-hidden rounded-xl border border-neutral-700/60 bg-black/40">
+                      {msg.mediaType === 'video' ? (
+                        <video
+                          src={msg.mediaUrl}
+                          poster={msg.thumbnailUrl}
+                          controls
+                          playsInline
+                          className="w-full max-h-64 rounded-xl object-contain bg-black"
+                        />
+                      ) : (
+                        <div
+                          className="relative cursor-pointer overflow-hidden group"
+                          onClick={() => setZoomMediaUrl(msg.mediaUrl!)}
+                        >
+                          <img
+                            src={msg.mediaUrl}
+                            alt="Uploaded attachment"
+                            className="w-full max-h-64 rounded-xl object-cover hover:scale-[1.02] transition-transform duration-200"
+                          />
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white flex items-center gap-1 font-semibold">
+                              <Maximize2 className="h-3 w-3" /> Zoom
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
                   {isUser ? (
                     <p className="whitespace-pre-wrap">{msg.text}</p>
                   ) : (
@@ -730,7 +839,66 @@ export const ChatView: React.FC<ChatViewProps> = ({
           </div>
         )}
 
+        {/* Staged Media Preview Tray */}
+        {stagedAttachments.length > 0 && (
+          <div className="mb-2 flex items-center gap-2 overflow-x-auto p-2 rounded-2xl bg-neutral-100/90 border border-neutral-200 dark:bg-neutral-800/90 dark:border-neutral-700 animate-in fade-in">
+            {stagedAttachments.map((item, idx) => {
+              const thumb = item.thumbnailUrl || item.dataUrl;
+              return (
+                <div
+                  key={item.id}
+                  className="relative group h-14 w-14 shrink-0 rounded-xl overflow-hidden border border-neutral-300 dark:border-neutral-600 bg-neutral-900 shadow-sm"
+                >
+                  {thumb ? (
+                    <img src={thumb} alt={item.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-neutral-400">
+                      {item.type === 'video' ? <Film className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
+                    </div>
+                  )}
+                  {item.type === 'video' && (
+                    <span className="absolute bottom-0.5 right-0.5 rounded bg-black/80 px-1 text-[8px] font-bold text-white">
+                      VID
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setStagedAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                    className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 shadow-sm transition cursor-pointer"
+                    title="Remove file"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setIsMediaModalOpen(true)}
+              disabled={stagedAttachments.length >= 5}
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-neutral-300 hover:border-orange-500 hover:bg-orange-500/10 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400 transition cursor-pointer"
+              title="Add more files"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+            <div className="ml-1 text-[11px] text-neutral-500 dark:text-neutral-400 shrink-0 font-medium">
+              <span>{stagedAttachments.length}/5 files</span>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSend} className="relative flex items-center">
+          {/* Plus Button for Media Upload (Meta AI / ChatGPT style) */}
+          <button
+            id="chat-add-media-btn"
+            type="button"
+            onClick={() => setIsMediaModalOpen(true)}
+            title="Add media and files - Upload whatever you want"
+            className="absolute left-2.5 z-10 flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-orange-600 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 dark:hover:text-orange-400 transition cursor-pointer shadow-xs"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+
           <input
             id="chat-input-field"
             type="text"
@@ -739,10 +907,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
             placeholder={
               isListening
                 ? 'Listening to your voice... typing down your words live...'
+                : stagedAttachments.length > 0
+                ? 'Add a message or question about your media...'
                 : 'Ask AGNI anything, or tap orb to speak...'
             }
-            disabled={isLoading}
-            className={`w-full rounded-2xl border py-3.5 pl-4 pr-24 text-xs sm:text-sm transition-all outline-none ${
+            disabled={isLoading || isUploadingMedia}
+            className={`w-full rounded-2xl border py-3.5 pl-13 sm:pl-14 pr-24 text-xs sm:text-sm transition-all outline-none ${
               isListening
                 ? 'border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/30 text-orange-950 dark:bg-orange-950/30 dark:text-orange-100'
                 : 'border-neutral-300 bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white'
@@ -769,7 +939,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             <button
               id="chat-send-button"
               type="submit"
-              disabled={!inputText.trim() || isLoading}
+              disabled={(!inputText.trim() && stagedAttachments.length === 0) || isLoading || isUploadingMedia}
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm transition hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               <Send className="h-4 w-4" />
@@ -777,6 +947,48 @@ export const ChatView: React.FC<ChatViewProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Meta AI / ChatGPT Media Upload Modal */}
+      <MediaUploadModal
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        onSelectFiles={(newFiles) => {
+          setStagedAttachments((prev) => {
+            const combined = [...prev, ...newFiles];
+            return combined.slice(0, 5);
+          });
+        }}
+        maxFiles={5}
+        currentStagedCount={stagedAttachments.length}
+      />
+
+      {/* Click-to-Zoom Media Lightbox Modal */}
+      {zoomMediaUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in"
+          onClick={() => setZoomMediaUrl(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setZoomMediaUrl(null)}
+              className="absolute -top-12 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-neutral-800 text-white hover:bg-neutral-700 transition cursor-pointer"
+              title="Close Zoom"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {zoomMediaUrl.endsWith('.mp4') || zoomMediaUrl.endsWith('.mov') ? (
+              <video src={zoomMediaUrl} controls autoPlay className="max-h-[85vh] max-w-[85vw] rounded-2xl shadow-2xl" />
+            ) : (
+              <img
+                src={zoomMediaUrl}
+                alt="Zoomed media"
+                className="max-h-[85vh] max-w-[85vw] rounded-2xl object-contain shadow-2xl"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Share Audio Snippet Modal */}
       <ShareAudioSnippetModal

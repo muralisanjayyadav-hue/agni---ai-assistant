@@ -33,7 +33,6 @@ const MyVoiceView = lazy(() => import('./components/MyVoiceView'));
 const ParentDashboardView = lazy(() => import('./components/ParentDashboardView'));
 const FounderAnalyticsView = lazy(() => import('./components/FounderAnalyticsView'));
 const FounderAccessView = lazy(() => import('./components/FounderAccessView'));
-const CoreSyncInternalView = lazy(() => import('./components/CoreSyncInternalView').then(m => ({ default: m.CoreSyncInternalView })));
 import {
   attachHardwareTriggerListener,
   setupMediaSessionTrigger,
@@ -51,6 +50,7 @@ import { Volume2, Sparkles, Radio, Square, Shield, Heart, Flame } from 'lucide-r
 import {
   TabMode,
   ChatMessage,
+  MediaAttachment,
   UserPreferences,
   StoredMemory,
   ReminderItem,
@@ -143,10 +143,6 @@ export default function App() {
         }
         if (path === '/founder-panel' || path === '/founder' || path.startsWith('/founder-panel') || path.startsWith('/founder')) {
           setActiveTab('founder_panel');
-          return;
-        }
-        if (path === '/core-sync-internal' || path === '/core-sync' || path.startsWith('/core-sync-internal')) {
-          setActiveTab('core_sync_internal');
           return;
         }
         if (path === '/founder-analytics' || path.startsWith('/founder-analytics')) {
@@ -1109,12 +1105,16 @@ export default function App() {
   };
 
   // Chat message send handler
-  const handleSendMessage = async (text: string) => {
-    localStorage.setItem('lastUserMessage', text);
+  const handleSendMessage = async (text: string, attachments?: MediaAttachment[]) => {
+    localStorage.setItem('lastUserMessage', text || (attachments?.length ? 'Uploaded media attachment' : ''));
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      text,
+      text: text || (attachments?.length ? `[Attached ${attachments.length} file(s)]` : ''),
+      attachments,
+      mediaUrl: attachments && attachments[0] ? attachments[0].url : undefined,
+      mediaType: attachments && attachments[0] ? attachments[0].type : undefined,
+      thumbnailUrl: attachments && attachments[0] ? attachments[0].thumbnailUrl : undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
@@ -1129,6 +1129,11 @@ export default function App() {
         body: JSON.stringify({
           messages: updatedMessages.map((m) => ({ role: m.role, text: m.text })),
           message: text,
+          attachments,
+          images: attachments?.map((a) => a.thumbnailUrl || a.url).filter(Boolean),
+          mediaUrl: attachments?.[0]?.url,
+          mediaType: attachments?.[0]?.type,
+          thumbnailUrl: attachments?.[0]?.thumbnailUrl,
           email: authUser?.email || localStorage.getItem('agni_user_email') || undefined,
           isFounder: authUser?.isFounder,
           userPreferences,
@@ -1628,9 +1633,6 @@ export default function App() {
             authUser={authUser}
             onBack={() => setActiveTab('home')}
           />
-        )}
-        {activeTab === 'core_sync_internal' && (
-          <CoreSyncInternalView onBack={() => setActiveTab('home')} />
         )}
 
         <ExamPredictorModal

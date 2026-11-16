@@ -1906,6 +1906,10 @@ app.post("/api/feedback", (req, res) => {
 });
 
 // Guard: Ensure any unhandled /api/* route returns JSON, never HTML
+app.all(["/core-sync-internal", "/core-sync-internal/*", "/core-sync", "/core-sync/*"], (_req, res) => {
+  return res.status(404).send("404 Not Found");
+});
+
 app.all("/api/*", (req, res) => {
   return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
 });
