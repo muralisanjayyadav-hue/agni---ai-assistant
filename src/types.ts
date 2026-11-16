@@ -27,7 +27,7 @@ export interface AuthUser {
   name: string;
   email: string;
   avatar?: string;
-  provider: 'google' | 'facebook' | 'instagram' | 'email';
+  provider: 'google' | 'facebook' | 'instagram' | 'microsoft' | 'email';
   isFounder?: boolean;
   isCoFounder?: boolean;
 }
