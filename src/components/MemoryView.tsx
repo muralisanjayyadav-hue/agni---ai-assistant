@@ -86,7 +86,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 type="text"
                 value={userPreferences.userName}
                 onChange={(e) => onUpdatePreferences({ userName: e.target.value })}
-                placeholder="e.g. Sanjay"
+                placeholder="Your name (e.g. Rahul Sharma)"
                 className="mt-1 w-full rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2 text-xs text-neutral-900 outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
               />
             </div>

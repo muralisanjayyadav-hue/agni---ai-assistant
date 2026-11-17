@@ -1368,7 +1368,7 @@ export const FounderAccessView: React.FC<FounderAccessViewProps> = ({ authUser, 
                     type="text"
                     value={directMessageTitle}
                     onChange={(e) => setDirectMessageTitle(e.target.value)}
-                    placeholder="e.g. Scholarship / Guidance from Sanjay & Hasini"
+                    placeholder="e.g. Scholarship / Guidance from AGNI Team"
                     className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>

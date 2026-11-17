@@ -132,20 +132,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       console.error('Email authentication error:', err);
       const friendlyMsg = formatAuthError(err);
 
-      if (friendlyMsg === 'Account already exists, please Sign In') {
+      if (
+        err?.code === 'auth/email-already-in-use' ||
+        friendlyMsg.includes('Account already exists') ||
+        friendlyMsg.includes('already registered with')
+      ) {
         setError(friendlyMsg);
         setTimeout(() => {
           setIsSignUp(false);
           setPassword('');
           setConfirmPassword('');
-        }, 1200);
-      } else if (friendlyMsg === 'No account found, please Create Account') {
+        }, 1400);
+      } else if (
+        err?.code === 'auth/user-not-found' ||
+        friendlyMsg.includes('No account found')
+      ) {
         setError(friendlyMsg);
         setTimeout(() => {
           setIsSignUp(true);
           setPassword('');
           setConfirmPassword('');
-        }, 1200);
+        }, 1400);
       } else {
         setError(friendlyMsg);
       }
@@ -281,7 +288,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   id="auth-fullname"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Sanjay or Hasini"
+                  placeholder="Your full name"
                   disabled={isLoadingAny}
                   className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 pl-10 pr-3 text-xs sm:text-sm text-white placeholder-neutral-500 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
                 />
@@ -400,6 +407,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <span>{isSignUp ? 'Create Account' : 'Sign In with Email'}</span>
             )}
           </button>
+
+          {/* Friendly red error text below button */}
+          {error && (
+            <p className="text-center text-xs font-semibold text-red-400 mt-2 px-1">
+              {error}
+            </p>
+          )}
         </form>
 
         {/* Divider */}

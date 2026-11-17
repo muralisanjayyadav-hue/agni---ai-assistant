@@ -238,7 +238,7 @@ export default function FounderAnalyticsView() {
                 type="password"
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="AGNI_FOUNDER_SANJAY_2026"
+                placeholder="Enter Founder Master Key"
                 className="w-full rounded-2xl bg-neutral-900 border border-neutral-700 text-white px-4 py-3.5 text-xs font-mono outline-none focus:border-[#FF6B00] transition"
                 autoComplete="off"
                 autoFocus
