@@ -6,13 +6,10 @@
 
 export const GOLD_FOUNDERS = [
   'muralisanjayyadav@gmail.com',
-  'Itzmehasu94444@gmail.com',
 ];
 
 export const FOUNDER_NAMES: Record<string, string> = {
   'muralisanjayyadav@gmail.com': 'M. Sanjay',
-  'itzmehasu94444@gmail.com': 'T. Hasini',
-  'Itzmehasu94444@gmail.com': 'T. Hasini',
 };
 
 export const FOUNDER_EMAIL = 'muralisanjayyadav@gmail.com'; // backward compatibility

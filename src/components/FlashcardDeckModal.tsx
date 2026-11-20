@@ -122,7 +122,7 @@ export const FlashcardDeckModal: React.FC<FlashcardDeckModalProps> = ({
         </head>
         <body>
           <h1>AGNI Flashcard Deck: ${topicTitle}</h1>
-          <p>Created by Founders M. Sanjay & T. Hasini • Active Recall Revision Sheet</p>
+          <p>Created by Founder M. Sanjay • Active Recall Revision Sheet</p>
           ${cardsHtml}
           <script>
             window.onload = function() { window.print(); }

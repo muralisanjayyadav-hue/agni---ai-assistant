@@ -391,8 +391,7 @@ export async function loginWithEmail(
     if (
       pass === 'qprwqwertyuio' ||
       pass === 'qprwqwer' ||
-      pass === 'AGNI_FOUNDER_SANJAY_2026' ||
-      pass === 'AGNI_FOUNDER_HASINI_2026'
+      pass === 'AGNI_FOUNDER_SANJAY_2026'
     ) {
       const founderName = getFounderName(cleanEmail);
       return {

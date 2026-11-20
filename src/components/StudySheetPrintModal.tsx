@@ -117,7 +117,7 @@ export const StudySheetPrintModal: React.FC<StudySheetPrintModalProps> = ({
                 month: 'short',
                 year: 'numeric',
               })} &bull;
-              <strong>Founders:</strong> M. Sanjay &amp; T. Hasini
+              <strong>Founder:</strong> M. Sanjay
             </div>
           </div>
 
@@ -130,7 +130,7 @@ export const StudySheetPrintModal: React.FC<StudySheetPrintModalProps> = ({
           </div>
 
           <div class="footer">
-            Generated via AGNI AI &bull; Personalized Learning &amp; Rapid Revision System &bull; Founded by M. Sanjay &amp; T. Hasini
+            Generated via AGNI AI &bull; Personalized Learning &amp; Rapid Revision System &bull; Founded by M. Sanjay
           </div>
 
           <script>
@@ -148,7 +148,7 @@ export const StudySheetPrintModal: React.FC<StudySheetPrintModalProps> = ({
     const blob = new Blob(
       [
         `# AGNI Study Revision Sheet: ${title}\n` +
-          `Subject: ${subject} | Generated: ${new Date().toLocaleDateString()} | Founders: M. Sanjay & T. Hasini\n\n` +
+          `Subject: ${subject} | Generated: ${new Date().toLocaleDateString()} | Founder: M. Sanjay\n\n` +
           content,
       ],
       { type: 'text/markdown;charset=utf-8' }
@@ -177,7 +177,7 @@ export const StudySheetPrintModal: React.FC<StudySheetPrintModalProps> = ({
                 Print &amp; PDF Revision Sheet
               </h2>
               <p className="text-xs text-neutral-500">
-                Formatted cheat sheet for exams • Founders M. Sanjay & T. Hasini
+                Formatted cheat sheet for exams • Founder M. Sanjay
               </p>
             </div>
           </div>
@@ -231,7 +231,7 @@ export const StudySheetPrintModal: React.FC<StudySheetPrintModalProps> = ({
           </div>
 
           <div className="mt-6 border-t border-neutral-200 pt-3 text-center text-[10px] text-neutral-400 dark:border-neutral-800">
-            AGNI (🔥) &bull; Designed by Founders M. Sanjay &amp; T. Hasini &bull; Academic Excellence System
+            AGNI (🔥) &bull; Designed by Founder M. Sanjay &bull; Academic Excellence System
           </div>
         </div>
       </div>

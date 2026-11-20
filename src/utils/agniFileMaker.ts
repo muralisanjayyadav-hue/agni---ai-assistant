@@ -11,7 +11,7 @@ export async function makePDF(title: string, content: string): Promise<void> {
   doc.text('AGNI AI', 10, 16);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
-  doc.text(`Founders M. Sanjay & T. Hasini | Made in India | ${new Date().toLocaleDateString()}`, 10, 22);
+  doc.text(`Founder M. Sanjay | Made in India | ${new Date().toLocaleDateString()}`, 10, 22);
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(18);
   doc.text(title, 10, 40);
@@ -28,7 +28,7 @@ export async function makePPT(
   // Dynamic import for bundle size optimization (pptxgenjs ~1MB)
   const { default: pptxgen } = await import('pptxgenjs');
   const pptx = new pptxgen();
-  pptx.author = 'M. Sanjay & T. Hasini';
+  pptx.author = 'M. Sanjay';
 
   // Title Slide
   const s0 = pptx.addSlide();

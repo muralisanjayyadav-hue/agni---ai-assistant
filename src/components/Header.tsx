@@ -135,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
                 textOverflow: 'ellipsis',
               }}
             >
-              Founders: M. Sanjay & T. Hasini
+              Founder: M. Sanjay
             </span>
           </div>
         </div>

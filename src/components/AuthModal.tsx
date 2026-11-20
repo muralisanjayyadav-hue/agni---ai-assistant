@@ -342,7 +342,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {isSignUp ? 'Create AGNI Account' : 'Sign In to AGNI'}
           </h2>
           <p className="mt-0.5 text-xs text-neutral-400">
-            Founded by <strong>M. Sanjay &amp; T. Hasini</strong> &bull; Made in India
+            Founded by <strong>M. Sanjay</strong> &bull; Made in India
           </p>
         </div>
 

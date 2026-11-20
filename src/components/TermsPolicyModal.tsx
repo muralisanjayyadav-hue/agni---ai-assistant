@@ -63,7 +63,7 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Terms of Service • Privacy Policy • Student Safety • Founders M. Sanjay & T. Hasini
+                Terms of Service • Privacy Policy • Student Safety • Founder M. Sanjay
               </p>
             </div>
           </div>
@@ -206,7 +206,7 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
                 <h3 className="font-bold text-neutral-900 dark:text-white text-sm">5. Intellectual Property</h3>
                 <p className="mt-1">
                   AGNI’s branding, design architecture, customized features, and software interfaces are
-                  conceived and built under the direction of <strong>Founders M. Sanjay &amp; T. Hasini</strong>. All rights reserved.
+                  conceived and built under the direction of <strong>Founder M. Sanjay</strong>. All rights reserved.
                 </p>
               </div>
             </div>
@@ -283,7 +283,7 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
               <div>
                 <h3 className="font-bold text-neutral-900 dark:text-white text-sm">7. Contact &amp; Grievance Officer</h3>
                 <p className="mt-1">
-                  For privacy concerns or data deletion: <strong>Founders M. Sanjay &amp; T. Hasini</strong>, Grievance Officers. Email: muralisanjayyadav@gmail.com. Response within 48 hours.
+                  For privacy concerns or data deletion: <strong>Founder M. Sanjay</strong>, Grievance Officer. Email: muralisanjayyadav@gmail.com. Response within 48 hours.
                 </p>
               </div>
             </div>
@@ -348,7 +348,7 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white text-[10px]">
                     🔒
                   </span>
-                  <span>A+ Secured by Founders M. Sanjay &amp; T. Hasini | Anti-Hack Active</span>
+                  <span>A+ Secured by Founder M. Sanjay | Anti-Hack Active</span>
                 </div>
                 <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-emerald-700 dark:text-emerald-300">
                   Protected
@@ -363,10 +363,10 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-display text-base font-bold text-neutral-900 dark:text-white">
-                        Founders: M. Sanjay & T. Hasini
+                        Founder: M. Sanjay
                       </h3>
                       <span className="rounded-full bg-orange-100 dark:bg-orange-950/80 px-2.5 py-0.5 text-[10px] font-bold text-orange-800 dark:text-orange-300 border border-orange-300 dark:border-orange-800">
-                        Founders of AGNI
+                        Founder of AGNI
                       </span>
                     </div>
                     <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
@@ -377,7 +377,7 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
 
                 <div className="mt-4 p-4 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/80 backdrop-blur-sm">
                   <p className="text-xs leading-relaxed text-neutral-800 dark:text-neutral-200 font-medium">
-                    &quot;M. Sanjay &amp; T. Hasini are the founders of AGNI. They founded AGNI to solve day-to-day life problems faced by people. Their vision is Project AGNI - Made in India, To Serve the World - a unified multimodal personal AI assistant that can explain concepts step-by-step, analyze diagrams, fetch live discoveries, and organize tasks, just like a true human friend. They believe AI should be helpful, humble, and human.&quot;
+                    &quot;M. Sanjay is the founder of AGNI. He founded AGNI to solve day-to-day life problems faced by people. His vision is Project AGNI - Made in India, To Serve the World - a unified multimodal personal AI assistant that can explain concepts step-by-step, analyze diagrams, fetch live discoveries, and organize tasks, just like a true human friend. He believes AI should be helpful, humble, and human.&quot;
                   </p>
                 </div>
 
@@ -401,7 +401,7 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Hidden Founder Access button in Terms & Policy (About tab) - STRICTLY For Gold Founders (M. Sanjay & T. Hasini) */}
+                  {/* Hidden Founder Access button in Terms & Policy (About tab) - STRICTLY For Founder M. Sanjay */}
                   {GOLD_FOUNDERS.map((e) => e.toLowerCase().trim()).includes(authUser?.email?.toLowerCase().trim() || '') && onOpenFounderAccess && (
                     <button
                       type="button"
@@ -426,7 +426,7 @@ export const TermsPolicyModal: React.FC<TermsPolicyModalProps> = ({
                   className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3"
                 >
                   <span className="text-neutral-400 font-semibold block text-[10px] uppercase">Founder &amp; Architect</span>
-                  <span className="font-bold text-neutral-900 dark:text-white text-sm">M. Sanjay &amp; T. Hasini</span>
+                  <span className="font-bold text-neutral-900 dark:text-white text-sm">M. Sanjay</span>
                   <p className="text-neutral-500 text-[11px] mt-0.5">Founded AGNI to solve everyday human problems</p>
                 </div>
 

@@ -122,7 +122,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
       {
         id: 'init-voice',
         speaker: 'agni',
-        text: 'Hello, welcome to AGNI Voice Box! I am your companion created by Founders M. Sanjay & T. Hasini. Tap the orb or say anything to start.',
+        text: 'Hello, welcome to AGNI Voice Box! I am your companion created by Founder M. Sanjay. Tap the orb or say anything to start.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ];
@@ -991,7 +991,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
                   </span>
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-neutral-400">
-                  Single Voice System • By Founders <strong>M. Sanjay &amp; T. Hasini</strong>
+                  Single Voice System • By Founder <strong>M. Sanjay</strong>
                 </p>
               </div>
             </div>
@@ -1512,7 +1512,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-neutral-400">
-                  <span>By Founders M. Sanjay &amp; T. Hasini • Natural Voice Engine</span>
+                  <span>By Founder M. Sanjay • Natural Voice Engine</span>
                 </p>
               </div>
             </div>

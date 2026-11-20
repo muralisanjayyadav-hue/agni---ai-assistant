@@ -41,7 +41,7 @@ import { SUPPORTED_LANGUAGES, getLanguageOption } from '../data/languages';
 import { isCofounderEmail } from '../utils/security';
 import { GOLD_FOUNDERS, getFounderName } from '../lib/auth';
 
-const DEFAULT_FOUNDER_BIO = `M. Sanjay & T. Hasini are the founders of AGNI. They founded AGNI to solve day-to-day life problems faced by people. Their vision is Project AGNI - Made in India, To Serve the World - a unified multimodal personal AI assistant that can explain concepts step-by-step, analyze diagrams, fetch live discoveries, and organize tasks, just like a true human friend. They believe AI should be helpful, humble, and human.`;
+const DEFAULT_FOUNDER_BIO = `M. Sanjay is the founder of AGNI. He founded AGNI to solve day-to-day life problems faced by people. His vision is Project AGNI - Made in India, To Serve the World - a unified multimodal personal AI assistant that can explain concepts step-by-step, analyze diagrams, fetch live discoveries, and organize tasks, just like a true human friend. He believes AI should be helpful, humble, and human.`;
 
 interface HomeHubProps {
   userPreferences: UserPreferences;
@@ -81,7 +81,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
   const handlePlayFounderSpeech = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setIsFounderSpeaking(true);
-    speakText('I was proudly created by Founders M. Sanjay and T. Hasini to help you in your day-to-day life!', {
+    speakText('I was proudly created by Founder M. Sanjay to help you in your day-to-day life!', {
       rate: 0.95,
       pitch: 1.05,
       profile: 'natural-warm',
@@ -588,6 +588,22 @@ export const HomeHub: React.FC<HomeHubProps> = ({
           </div>
         </div>
 
+        {/* HERO FEATURE: 🔥 JARVIS MODE BUTTON */}
+        <div className="w-full max-w-2xl flex flex-col items-center">
+          <button
+            type="button"
+            id="open-jarvis-mode-btn"
+            onClick={() => onSelectTab('jarvis')}
+            className="w-full py-4 px-6 rounded-2xl bg-[#0A0A0A] border-2 border-[#FF6A00] text-[#FF6A00] hover:bg-[#FF6A00]/10 hover:shadow-[0_0_35px_rgba(255,106,0,0.5)] active:scale-[0.99] transition-all duration-300 font-extrabold text-lg sm:text-xl flex items-center justify-center gap-3 cursor-pointer shadow-xl shadow-black/80 tracking-wide"
+          >
+            <span className="text-2xl animate-pulse">🔥</span>
+            <span>JARVIS MODE</span>
+          </button>
+          <p className="mt-1.5 text-xs text-white/90 font-medium text-center tracking-tight">
+            Free For All &bull; No Pay &bull; Any Command &bull; Open App &bull; WhatsApp &bull; Email
+          </p>
+        </div>
+
         {/* 2. AGNI HEART & MIND CARE CARD (Down the Message AGNI — Dedicated Separate Chat) */}
         <div
           id="agni-heart-mind-care-home-card"
@@ -715,7 +731,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
         <div
           id="meet-the-founder-card"
           onClick={() => handlePlayFounderSpeech()}
-          title="Click to hear AGNI talk about Founders M. Sanjay & T. Hasini"
+          title="Click to hear AGNI talk about Founder M. Sanjay"
           className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-orange-500/30 bg-gradient-to-br from-neutral-950/95 via-neutral-900/90 to-orange-950/50 p-4 sm:p-5 text-left text-white shadow-xl shadow-orange-950/20 backdrop-blur-xl transition-all hover:border-orange-500/60 hover:shadow-orange-500/10 cursor-pointer group select-none"
         >
           {/* Subtle Orange Glow Ambient Effect */}
@@ -726,7 +742,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
             <div className="flex items-center gap-3">
               {/* Founder Avatar with Flame / Orange Ring */}
               <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-orange-600 via-amber-500 to-orange-500 text-white font-black shadow-md shadow-orange-600/30 border border-orange-400/40">
-                <span className="text-xs tracking-wider">S &amp; H</span>
+                <span className="text-sm tracking-wider">MS</span>
                 <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-950 text-[10px] border border-orange-500/40">
                   🔥
                 </span>
@@ -735,14 +751,14 @@ export const HomeHub: React.FC<HomeHubProps> = ({
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm sm:text-base font-bold text-white group-hover:text-orange-300 transition-colors">
-                    Meet the Founders 🫡
+                    Meet the Founder 🫡
                   </span>
                   <span className="rounded-full bg-orange-500/20 border border-orange-400/40 px-2 py-0.5 text-[10px] font-bold text-orange-300">
-                    Founders of AGNI
+                    Founder of AGNI
                   </span>
                 </div>
                 <div className="text-xs text-neutral-300 mt-0.5">
-                  <strong className="text-orange-400 font-semibold">M. Sanjay &amp; T. Hasini</strong> • Kind-Hearted Innovators
+                  <strong className="text-orange-400 font-semibold">M. Sanjay</strong> • Innovator
                 </div>
               </div>
             </div>
@@ -808,7 +824,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
                 </button>
               )}
 
-              {/* Founder Access: STRICTLY Visible for Gold Founders (M. Sanjay & T. Hasini) 👑 */}
+              {/* Founder Access: STRICTLY Visible for Founder M. Sanjay 👑 */}
               {GOLD_FOUNDERS.map((e) => e.toLowerCase().trim()).includes(authUser?.email?.toLowerCase().trim() || '') && onOpenFounderAccess && (
                 <button
                   type="button"

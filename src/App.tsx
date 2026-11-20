@@ -319,7 +319,7 @@ export default function App() {
             message: cfg.banner.text,
             timestamp: new Date().toISOString(),
             active: true,
-            author: 'Founders M. Sanjay & T. Hasini',
+            author: 'Founder M. Sanjay',
           });
         }
       })
@@ -995,7 +995,7 @@ export default function App() {
   const [memories, setMemories] = useState<StoredMemory[]>(() => {
     const founderMem: StoredMemory = {
       id: 'mem-founder',
-      content: 'Founders of AGNI are M. Sanjay & T. Hasini, kind-hearted innovators who founded AGNI to solve day-to-day life problems. Vision: Made in India, To Serve the World.',
+      content: 'Founder of AGNI is M. Sanjay, kind-hearted innovator who founded AGNI to solve day-to-day life problems. Vision: Made in India, To Serve the World.',
       category: 'preference',
       createdAt: '2026-09-14',
     };
@@ -1565,7 +1565,12 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'jarvis' && <JarvisView />}
+        {activeTab === 'jarvis' && (
+          <JarvisView
+            onClose={() => handleSelectTab('home')}
+            onNavigate={(p) => handleSelectTab('home')}
+          />
+        )}
 
         {activeTab === 'life_os' && (
           <SmartLifeOS
@@ -1679,7 +1684,7 @@ export default function App() {
             <span>Ã¢â‚¬Â¢</span>
             <span className="text-orange-600 dark:text-orange-400 font-semibold">Made in India</span>
             <span>Ã¢â‚¬Â¢</span>
-            <span>Conceived &amp; Developed by Founders <strong>M. Sanjay &amp; T. Hasini</strong></span>
+            <span>Conceived &amp; Developed by Founder <strong>M. Sanjay</strong></span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
@@ -1712,7 +1717,7 @@ export default function App() {
               onClick={() => handleOpenTerms('about')}
               className="hover:text-orange-500 underline underline-offset-2 transition cursor-pointer"
             >
-              Founders M. Sanjay &amp; T. Hasini
+              Founder M. Sanjay
             </button>
           </div>
         </div>

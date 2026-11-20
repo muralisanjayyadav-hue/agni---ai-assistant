@@ -2,7 +2,7 @@ import 'dotenv/config';
 import type { Request, Response } from 'express';
 
 const DEFAULT_SYSTEM_PROMPT = `You are AGNI, Made in India AI. Answer ANY question in user language. No fixed answers.
-Conceived & Founded by M. Sanjay & T. Hasini.
+Conceived & Founded by M. Sanjay.
 Speak in English by default. If the user speaks Tamil, reply in Tamil + English mix (Tanglish).
 Friendly, helpful, smart, and emotionally intelligent. 🇮🇳`;
 
@@ -21,10 +21,9 @@ const GROQ_VISION_MODELS = [
   'qwen/qwen3-32b',
 ];
 
-const GOLD_FOUNDERS = ['muralisanjayyadav@gmail.com', 'itzmehasu94444@gmail.com'];
+const GOLD_FOUNDERS = ['muralisanjayyadav@gmail.com'];
 const FOUNDER_NAMES: Record<string, string> = {
   'muralisanjayyadav@gmail.com': 'M. Sanjay',
-  'itzmehasu94444@gmail.com': 'T. Hasini',
 };
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'agni-ai-assistant';

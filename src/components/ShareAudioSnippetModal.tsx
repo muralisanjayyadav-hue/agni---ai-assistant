@@ -50,7 +50,7 @@ export const ShareAudioSnippetModal: React.FC<ShareAudioSnippetModalProps> = ({
   };
 
   const handleCopy = () => {
-    const formatted = `🔥 AGNI Voice Explanation: "${topic}"\n\n"${snippetText}"\n\n- Powered by AGNI Assistant (Founders M. Sanjay & T. Hasini)`;
+    const formatted = `🔥 AGNI Voice Explanation: "${topic}"\n\n"${snippetText}"\n\n- Powered by AGNI Assistant (Founder M. Sanjay)`;
     navigator.clipboard.writeText(formatted);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -151,7 +151,7 @@ export const ShareAudioSnippetModal: React.FC<ShareAudioSnippetModalProps> = ({
               <span>{isPlaying ? 'Pause Audio' : 'Play Voice Clip'}</span>
             </button>
 
-            <span className="text-[10px] text-neutral-400">Founders M. Sanjay &amp; T. Hasini</span>
+            <span className="text-[10px] text-neutral-400">Founder M. Sanjay</span>
           </div>
         </div>
 

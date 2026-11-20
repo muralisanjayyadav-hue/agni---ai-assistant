@@ -626,7 +626,7 @@ export const AgniCanvas: React.FC<AgniCanvasProps> = ({
     drawNodeBox(ctx, 580, 120, 220, 80, '1930: Dandi Salt March', '240-mile march shattering salt monopoly tax law.', 3, step >= 3, '#10b981', practice, revealed.has(3));
     drawNodeBox(ctx, 580, 290, 220, 80, '1942: Quit India Movement', 'Historic "Do or Die" call united millions for freedom.', 4, step >= 4, '#3b82f6', practice, revealed.has(4));
     drawNodeBox(ctx, 320, 290, 220, 80, '15 Aug 1947: Independence', 'Sovereign dawn: "Tryst with Destiny" fulfilled.', 5, step >= 5, '#f97316', practice, revealed.has(5));
-    drawNodeBox(ctx, 60, 290, 220, 80, 'Project AGNI Vision', '"Made in India, To Serve the World" by Founders M. Sanjay & T. Hasini.', 6, step >= 6, '#22c55e', practice, revealed.has(6));
+    drawNodeBox(ctx, 60, 290, 220, 80, 'Project AGNI Vision', '"Made in India, To Serve the World" by Founder M. Sanjay.', 6, step >= 6, '#22c55e', practice, revealed.has(6));
 
     if (step >= 2) drawArrow(ctx, 280, 160, 320, 160, 'Nationalism', '#f59e0b');
     if (step >= 3) drawArrow(ctx, 540, 160, 580, 160, 'Satyagraha', '#10b981');

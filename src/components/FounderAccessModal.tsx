@@ -59,7 +59,7 @@ interface FounderAccessModalProps {
   onDeleteAppData?: () => void;
 }
 
-const DEFAULT_FOUNDER_BIO = `M. Sanjay & T. Hasini are the founders of AGNI. They founded AGNI to solve day-to-day life problems faced by people. Their vision is Project AGNI - Made in India, To Serve the World - a unified multimodal personal AI assistant that can explain concepts step-by-step, analyze diagrams, fetch live discoveries, and organize tasks, just like a true human friend. They believe AI should be helpful, humble, and human.`;
+const DEFAULT_FOUNDER_BIO = `M. Sanjay is the founder of AGNI. He founded AGNI to solve day-to-day life problems faced by people. His vision is Project AGNI - Made in India, To Serve the World - a unified multimodal personal AI assistant that can explain concepts step-by-step, analyze diagrams, fetch live discoveries, and organize tasks, just like a true human friend. He believes AI should be helpful, humble, and human.`;
 
 // Default realistic student queries for Co-Founder Chat Manager
 interface StudentQuery {
@@ -975,7 +975,7 @@ export const FounderAccessModal: React.FC<FounderAccessModalProps> = ({
                                 </span>
                               </div>
                               <p className="text-[10px] text-neutral-400 mt-0.5">
-                                Granted by Founders M. Sanjay &amp; T. Hasini &bull; Limited Access Active
+                                Granted by Founder M. Sanjay &bull; Limited Access Active
                               </p>
                             </div>
                           </div>
@@ -1135,7 +1135,7 @@ export const FounderAccessModal: React.FC<FounderAccessModalProps> = ({
           <div className="flex items-center justify-between px-5 sm:px-7 py-3 border-t border-white/10 bg-neutral-950/90 text-xs text-neutral-400 shrink-0">
             <div className="flex items-center gap-2">
               <span className="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-              <span>Project AGNI &bull; Founded by M. Sanjay &amp; T. Hasini</span>
+              <span>Project AGNI &bull; Founded by M. Sanjay</span>
             </div>
             <button
               type="button"
@@ -1239,7 +1239,7 @@ export const FounderAccessModal: React.FC<FounderAccessModalProps> = ({
             <div className="flex items-center justify-center gap-2">
               <span className="text-xl select-none">🥈</span>
               <h3 className="font-display font-extrabold text-slate-100 text-sm sm:text-base tracking-wide">
-                Silver Access - Granted by Founders M. Sanjay &amp; T. Hasini
+                Silver Access - Granted by Founder M. Sanjay
               </h3>
             </div>
             <p className="text-[11px] text-slate-300 mt-1 max-w-lg mx-auto leading-relaxed">
@@ -1804,7 +1804,7 @@ export const FounderAccessModal: React.FC<FounderAccessModalProps> = ({
         <div className="flex items-center justify-between px-5 sm:px-7 py-3 border-t border-white/10 bg-neutral-950/90 text-xs text-neutral-400 shrink-0">
           <div className="flex items-center gap-2">
             <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
-            <span>Co-Founder Portal &bull; Conceived by Founders M. Sanjay &amp; T. Hasini</span>
+            <span>Founder Portal &bull; Conceived by Founder M. Sanjay</span>
           </div>
           <button
             type="button"

@@ -78,7 +78,7 @@ export const FounderAccessView: React.FC<FounderAccessViewProps> = ({ authUser, 
   // Tab 3: Broadcast & Banner State
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
-  const [broadcastAuthor, setBroadcastAuthor] = useState('Founders M. Sanjay & T. Hasini');
+  const [broadcastAuthor, setBroadcastAuthor] = useState('Founder M. Sanjay');
   const [syncToBanner, setSyncToBanner] = useState(true);
   const [bannerText, setBannerText] = useState('');
   const [bannerColor, setBannerColor] = useState('orange');

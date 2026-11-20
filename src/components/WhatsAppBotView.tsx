@@ -258,7 +258,7 @@ export const WhatsAppBotView: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-[10px] opacity-90">
-                      Tutor &bull; Founders M. Sanjay &amp; T. Hasini &bull; Voice Enabled
+                      Tutor &bull; Founder M. Sanjay &bull; Voice Enabled
                     </p>
                   </div>
                 </div>

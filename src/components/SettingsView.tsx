@@ -868,7 +868,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3.5 py-2 text-xs font-bold text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300 cursor-pointer"
               >
                 <Flame className="h-3.5 w-3.5" />
-                <span>About AGNI &amp; Founders M. Sanjay &amp; T. Hasini</span>
+                <span>About AGNI &amp; Founder M. Sanjay</span>
               </button>
             </>
           )}
