@@ -21,7 +21,7 @@ export async function makePDF(title, content) {
   doc.text('AGNI AI', 10, 16);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
-  doc.text(`Founders M. Sanjay & T. Hasini | Made in India | ${new Date().toLocaleDateString()}`, 10, 22);
+  doc.text(`Founder M. Sanjay | Made in India | ${new Date().toLocaleDateString()}`, 10, 22);
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(18);
   doc.text(title, 10, 40);
@@ -33,7 +33,7 @@ export async function makePDF(title, content) {
 
 export async function makePPT(title, slidesData) {
   const pptx = new pptxgen();
-  pptx.author = 'M. Sanjay & T. Hasini';
+  pptx.author = 'M. Sanjay';
   const s0 = pptx.addSlide();
   s0.background = { fill: '000000' };
   s0.addText('AGNI', {
@@ -53,7 +53,7 @@ export async function makePPT(title, slidesData) {
     fontSize: 24,
     color: 'FFFFFF',
   });
-  s0.addText('Conceived & Founded by M. Sanjay & T. Hasini | muralisanjayyadav@gmail.com', {
+  s0.addText('Conceived & Founded by M. Sanjay | muralisanjayyadav@gmail.com', {
     x: 0.5,
     y: 3.0,
     w: 9,

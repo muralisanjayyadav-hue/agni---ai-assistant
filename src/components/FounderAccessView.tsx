@@ -581,9 +581,9 @@ export const FounderAccessView: React.FC<FounderAccessViewProps> = ({ authUser, 
           ACCESS RESTRICTED
         </h1>
         <p className="text-neutral-300 max-w-md text-sm mb-6 leading-relaxed">
-          The Ultimate Founder Executive Panel is exclusively restricted to Dual Gold Founders:
+          The Ultimate Founder Executive Panel is exclusively restricted to Founder:
           <br />
-          <strong className="text-amber-400 font-bold">M. Sanjay &amp; T. Hasini</strong>.
+          <strong className="text-amber-400 font-bold">M. Sanjay</strong>.
         </p>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl px-5 py-3 text-xs text-neutral-400">
           Redirecting to Home Hub in <span className="text-white font-mono font-bold text-sm">{redirectCountdown ?? 2}s</span>...
@@ -618,7 +618,7 @@ export const FounderAccessView: React.FC<FounderAccessViewProps> = ({ authUser, 
               Welcome <span className="text-amber-400 font-bold">{currentFounderName} 👑</span>
             </p>
             <p className="text-[11px] text-neutral-500 mt-0.5">
-              Dual Gold Founders: M. Sanjay &amp; T. Hasini
+              Founder: M. Sanjay
             </p>
           </div>
 
@@ -702,7 +702,7 @@ export const FounderAccessView: React.FC<FounderAccessViewProps> = ({ authUser, 
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400">
-                Founders: <strong className="text-white">M. Sanjay &amp; T. Hasini</strong> &bull; Active:{' '}
+                Founder: <strong className="text-white">M. Sanjay</strong> &bull; Active:{' '}
                 <span className="text-amber-400 font-semibold">{currentFounderName}</span>
               </p>
             </div>
@@ -1231,9 +1231,7 @@ export const FounderAccessView: React.FC<FounderAccessViewProps> = ({ authUser, 
                         onChange={(e) => setBroadcastAuthor(e.target.value)}
                         className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-neutral-300 focus:outline-none focus:border-amber-500"
                       >
-                        <option value="Founders M. Sanjay & T. Hasini">M. Sanjay &amp; T. Hasini (Both)</option>
                         <option value="Founder M. Sanjay">Founder M. Sanjay</option>
-                        <option value="Founder T. Hasini">Founder T. Hasini</option>
                       </select>
                     </div>
 
@@ -1495,7 +1493,7 @@ export const FounderAccessView: React.FC<FounderAccessViewProps> = ({ authUser, 
                     type="button"
                     onClick={() =>
                       setSystemPrompt(`You are AGNI, Made in India AI. Answer ANY question in user language. No fixed answers.
-Conceived & Founded by M. Sanjay & T. Hasini (muralisanjayyadav@gmail.com).
+Conceived & Founded by M. Sanjay (muralisanjayyadav@gmail.com).
 You are a friendly, helpful, smart AI assistant like Jarvis.
 Always call the user "buddy" — never use "machi", "da", or "bro".
 Example style: "Hii buddy! How can I help you?" or "Great question, buddy! Here's what I know..."
@@ -1746,7 +1744,7 @@ You are Made in India, proud — "Made in India, To Serve the World." 🇮🇳`)
                 <div>
                   <h3 className="font-bold text-sm text-white">Maintenance Mode</h3>
                   <p className="text-xs text-neutral-400 mt-0.5">
-                    When active, non-founder users see a friendly maintenance message. Founders M. Sanjay &amp; T. Hasini bypass automatically.
+                    When active, non-founder users see a friendly maintenance message. Founder M. Sanjay bypasses automatically.
                   </p>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">

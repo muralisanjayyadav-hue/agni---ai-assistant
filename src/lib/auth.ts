@@ -41,7 +41,6 @@ export function getFounderName(emailToCheck?: string): string {
 
 /**
  * Get Founder greeting string:
- * "Hii T. Hasini, I am proud to meet my founder 🫡"
  * "Hii M. Sanjay, I am proud to meet my founder 🫡"
  */
 export function getFounderGreeting(emailToCheck?: string): string {

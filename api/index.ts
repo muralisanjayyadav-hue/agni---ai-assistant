@@ -1,7 +1,7 @@
 /**
  * AGNI Serverless API — Vercel Edge & Serverless Function Entry Point
  * 100% PURE GROQ API ONLY — Zero Hardcoded / Feeded Answers.
- * Dual Gold Founders: M. Sanjay & T. Hasini
+ * Founder: M. Sanjay
  * Complete In-Memory & Persistent Storage Engine for Ultimate Founder Access Panel
  */
 
@@ -321,7 +321,7 @@ const INITIAL_DB: AgniDatabase = {
   ],
   remote_config: {
     systemPrompt: `You are AGNI, Made in India AI. Answer ANY question in user language. No fixed answers.
-Conceived & Founded by M. Sanjay & T. Hasini (muralisanjayyadav@gmail.com).
+Conceived & Founded by M. Sanjay (muralisanjayyadav@gmail.com).
 You are a friendly, helpful, smart AI assistant like Jarvis.
 Always call the user "buddy" — never use "machi", "da", or "bro".
 Example style: "Hii buddy! How can I help you?" or "Great question, buddy! Here's what I know..."
@@ -352,7 +352,7 @@ You are Made in India, proud — "Made in India, To Serve the World." 🇮🇳`,
     version: {
       versionName: '23.0.0 PLAY STORE READY',
       versionCode: 23,
-      changelog: '1. 100% Pure Live Groq API — zero hardcoded answers\n2. Dual Gold Founder Control Panel (M. Sanjay & T. Hasini)\n3. Real-Time Remote Config & AI Model Switching\n4. Student Safety & SOS Dispatch Center',
+      changelog: '1. 100% Pure Live Groq API — zero hardcoded answers\n2. Founder Control Panel (M. Sanjay)\n3. Real-Time Remote Config & AI Model Switching\n4. Student Safety & SOS Dispatch Center',
     },
     ads: {
       enabled: false,
@@ -375,7 +375,7 @@ You are Made in India, proud — "Made in India, To Serve the World." 🇮🇳`,
       title: 'Parent & Student Dashboard Released 🛡️',
       message: 'Privacy-safe academic study logs are now accessible with local PIN 1234.',
       timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-      author: 'T. Hasini',
+      author: 'M. Sanjay',
       deliveredCount: 3890,
     },
   ],
@@ -468,7 +468,7 @@ You are Made in India, proud — "Made in India, To Serve the World." 🇮🇳`,
   },
   cms: {
     about: `# About Project AGNI
-**Conceived & Founded by M. Sanjay & T. Hasini**
+**Conceived & Founded by M. Sanjay**
 
 Project AGNI — Artificial General Neuro Intelligence — was founded in India with the unifying mission: *"Made in India, To Serve the World"*.
 
@@ -482,7 +482,7 @@ Built with integrity, transparency, and deep student safety protocols.`,
 **Effective Date:** 2026-11-14
 
 ### 1. Intellectual Property
-AGNI’s branding, system architecture, neural routing logic, and interfaces are conceived and built under the direction of **Founders M. Sanjay & T. Hasini**. All rights reserved.
+AGNI’s branding, system architecture, neural routing logic, and interfaces are conceived and built under the direction of **Founder M. Sanjay**. All rights reserved.
 
 ### 2. Fair Academic Use
 AGNI is designed to mentor students, explain principles, and guide problem-solving. It is not permitted to use AGNI for cheating on monitored academic examinations.
@@ -497,7 +497,7 @@ We store minimal authentication metadata (email, display name) and encrypted loc
 
 ### 2. Grievance & Founder Contact
 For data deletion or questions:
-- **Founders:** M. Sanjay & T. Hasini
+- **Founder:** M. Sanjay
 - **Email:** muralisanjayyadav@gmail.com
 - **Response Commitment:** Within 48 hours.`,
   },
@@ -784,7 +784,7 @@ function getGroq(): Groq | null {
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are AGNI, Made in India AI. Answer ANY question in user language. No fixed answers.
-Conceived & Founded by M. Sanjay & T. Hasini (muralisanjayyadav@gmail.com).
+Conceived & Founded by M. Sanjay (muralisanjayyadav@gmail.com).
 You are a friendly, helpful, smart AI assistant like Jarvis.
 Always call the user "buddy" — never use "machi", "da", or "bro".
 Example style: "Hii buddy! How can I help you?" or "Great question, buddy! Here's what I know..."

@@ -209,7 +209,7 @@ export default function FounderAnalyticsView() {
         <div className="text-6xl mb-4">🔒</div>
         <h2 className="text-2xl font-bold text-[#FF6B00] mb-2">Restricted Access</h2>
         <p className="text-neutral-300 text-sm max-w-sm">
-          Founder Analytics is strictly reserved for Project AGNI Founders (<strong>M. Sanjay &amp; T. Hasini</strong>).
+          Founder Analytics is strictly reserved for Project AGNI Founder (<strong>M. Sanjay</strong>).
         </p>
         <p className="text-neutral-500 text-xs mt-3">Redirecting to Home in {countdown}s...</p>
         <div className="mt-4 text-xs text-neutral-600 font-mono">Logged in as: {email || 'Guest'}</div>
@@ -230,7 +230,7 @@ export default function FounderAnalyticsView() {
               <KeyRound className="h-7 w-7" />
             </div>
             <h1 className="text-xl font-bold text-white">Founder Secret Access</h1>
-            <p className="text-xs text-neutral-400 mt-1">Hello Founder {email && email.toLowerCase().includes('hasu') ? 'T. Hasini' : 'M. Sanjay'} 👑 Enter private key</p>
+            <p className="text-xs text-neutral-400 mt-1">Hello Founder M. Sanjay 👑 Enter private key</p>
           </div>
           <form onSubmit={handleKeySubmit} className="space-y-3">
             <div>
@@ -275,7 +275,7 @@ export default function FounderAnalyticsView() {
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base font-bold text-white">Founder Analytics</h1>
                 <span className="rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 border border-amber-400/30">
-                  👑 Founders: M. Sanjay & T. Hasini
+                  👑 Founder: M. Sanjay
                 </span>
               </div>
               <p className="text-[10px] text-neutral-400">Pure Local Intel • Zero Tracking</p>
