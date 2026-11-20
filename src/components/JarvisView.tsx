@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { JarvisMode } from './JarvisMode';
+export { JarvisSparkOrb } from './JarvisSparkOrb';
 
 interface JarvisViewProps {
   onClose?: () => void;

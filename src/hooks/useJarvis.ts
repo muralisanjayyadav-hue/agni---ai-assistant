@@ -27,7 +27,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [micPermission, setMicPermission] = useState<'prompt' | 'granted' | 'denied'>('prompt');
-  const [youSaid, setYouSaid] = useState<string>('Say "Hey Jarvis" or tap the mic below');
+  const [youSaid, setYouSaid] = useState<string>('Say Hey Jarvis or tap the mic below');
   const [jarvisReply, setJarvisReply] = useState<string>('Jarvis online, Sir. How may I assist you today?');
   const [lastAction, setLastAction] = useState<string>('initialized');
 

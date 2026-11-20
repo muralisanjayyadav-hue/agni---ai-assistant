@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Mic, MicOff, Send, Volume2, Sparkles, AlertCircle } from 'lucide-react';
-import { JarvisSphere } from './JarvisSphere';
+import { JarvisSparkOrb } from './JarvisSparkOrb';
 import { useJarvis } from '../hooks/useJarvis';
 
 interface JarvisModeProps {
@@ -87,13 +87,14 @@ export const JarvisMode: React.FC<JarvisModeProps> = ({ onClose, onNavigate }) =
           </div>
         )}
 
-        {/* Big Glowing Orange Sphere - 230px circle */}
+        {/* Glowing Canvas Particle Sphere - JarvisSparkOrb */}
         <div className="my-2 sm:my-4 flex items-center justify-center">
-          <JarvisSphere
+          <JarvisSparkOrb
             isListening={isListening}
             isSpeaking={isSpeaking}
             isThinking={isThinking}
             onClick={toggleListening}
+            size={280}
           />
         </div>
 
@@ -102,10 +103,10 @@ export const JarvisMode: React.FC<JarvisModeProps> = ({ onClose, onNavigate }) =
           {/* Text 1: You said (White) */}
           <div className="bg-neutral-950/80 border border-neutral-850 rounded-2xl px-4 py-3 backdrop-blur-md">
             <span className="text-[11px] font-bold text-neutral-400 block uppercase tracking-wider mb-1">
-              You said:
+              YOU SAID:
             </span>
             <p className="text-sm sm:text-base font-semibold text-white tracking-wide">
-              {youSaid}
+              {youSaid || 'Say Hey Jarvis or tap the mic below'}
             </p>
           </div>
 
