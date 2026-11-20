@@ -169,51 +169,108 @@ export default async function handler(req: Request, res: Response) {
     const jarvisPrompt =
       'You are AGNI, real Jarvis. You can DO things. If user gives command, respond JSON: { say: full sentence, action: { type: open_url, url: https://... } }. You decide URL yourself. If user says open instagram -> https://instagram.com, search cats -> https://google.com/search?q=cats. If no action just { say: ... }';
 
-    try {
-      const completion = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: jarvisPrompt },
-          { role: 'user', content: lastUserQuery },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-        max_tokens: 1024,
-      });
+    const candidateModels = [
+      'llama-3.3-70b-versatile',
+      'openai/gpt-oss-120b',
+      'openai/gpt-oss-20b',
+      'qwen/qwen3.8-27b',
+    ];
 
-      const replyContent = completion.choices?.[0]?.message?.content?.trim() || '{}';
-      let parsed: any = {};
+    let lastGroqError: any = null;
+
+    // 1. Try with response_format json_object
+    for (const model of candidateModels) {
       try {
-        parsed = JSON.parse(replyContent);
-      } catch {
-        parsed = { say: replyContent };
+        const completion = await groq.chat.completions.create({
+          model,
+          messages: [
+            { role: 'system', content: jarvisPrompt },
+            { role: 'user', content: lastUserQuery },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+          max_tokens: 1024,
+        });
+
+        const replyContent = completion.choices?.[0]?.message?.content?.trim() || '{}';
+        let parsed: any = {};
+        try {
+          parsed = JSON.parse(replyContent);
+        } catch {
+          const jsonMatch = replyContent.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try { parsed = JSON.parse(jsonMatch[0]); } catch {}
+          }
+        }
+
+        const say = parsed.say || replyContent;
+        const action = parsed.action || (parsed.url ? { type: 'open_url', url: parsed.url } : null);
+
+        return res.status(200).json({
+          say,
+          action,
+          reply: say,
+          text: say,
+          role: 'assistant',
+          content: say,
+          model,
+        });
+      } catch (err: any) {
+        lastGroqError = err;
+        console.debug(`[Groq Jarvis ${model} notice]`, err?.message || err);
+        continue;
       }
-
-      const say = parsed.say || replyContent;
-      const action = parsed.action || (parsed.url ? { type: 'open_url', url: parsed.url } : null);
-
-      return res.status(200).json({
-        say,
-        action,
-        reply: say,
-        text: say,
-        role: 'assistant',
-        content: say,
-        model: 'llama-3.3-70b-versatile',
-      });
-    } catch (groqErr: any) {
-      console.error('[Groq Jarvis Error]', groqErr);
-      const fallbackSay = `I am on it, sir. Executing command for ${lastUserQuery}.`;
-      return res.status(200).json({
-        say: fallbackSay,
-        action: null,
-        reply: fallbackSay,
-        text: fallbackSay,
-        role: 'assistant',
-        content: fallbackSay,
-        model: 'llama-3.3-70b-versatile',
-      });
     }
+
+    // 2. Resilient fallback without response_format if json_object not supported by model
+    for (const model of candidateModels) {
+      try {
+        const completion = await groq.chat.completions.create({
+          model,
+          messages: [
+            { role: 'system', content: jarvisPrompt },
+            { role: 'user', content: lastUserQuery },
+          ],
+          temperature: 0.7,
+          max_tokens: 1024,
+        });
+
+        const replyContent = completion.choices?.[0]?.message?.content?.trim() || '';
+        let parsed: any = {};
+        const jsonMatch = replyContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try { parsed = JSON.parse(jsonMatch[0]); } catch {}
+        }
+
+        const say = parsed.say || replyContent;
+        const action = parsed.action || (parsed.url ? { type: 'open_url', url: parsed.url } : null);
+
+        return res.status(200).json({
+          say,
+          action,
+          reply: say,
+          text: say,
+          role: 'assistant',
+          content: say,
+          model,
+        });
+      } catch (err: any) {
+        lastGroqError = err;
+        continue;
+      }
+    }
+
+    const fallbackSay = `I am on it, sir. Executing command for ${lastUserQuery}.`;
+    return res.status(200).json({
+      say: fallbackSay,
+      action: null,
+      reply: fallbackSay,
+      text: fallbackSay,
+      role: 'assistant',
+      content: fallbackSay,
+      model: 'llama-3.3-70b-versatile',
+      error: lastGroqError?.message,
+    });
   }
 
   let isAskingThoughts = false;
