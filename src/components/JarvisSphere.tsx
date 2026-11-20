@@ -3,27 +3,25 @@ import { JarvisSparkOrb } from './JarvisSparkOrb';
 
 interface JarvisSphereProps {
   isListening: boolean;
-  isSpeaking: boolean;
-  isThinking: boolean;
+  isSpeaking?: boolean;
+  isThinking?: boolean;
   onClick?: () => void;
   size?: number;
 }
 
 export const JarvisSphere: React.FC<JarvisSphereProps> = ({
   isListening,
-  isSpeaking,
-  isThinking,
   onClick,
   size = 280,
 }) => {
   return (
-    <JarvisSparkOrb
-      isListening={isListening}
-      isSpeaking={isSpeaking}
-      isThinking={isThinking}
+    <div
       onClick={onClick}
-      size={size}
-    />
+      style={{ width: size, height: size, cursor: 'pointer' }}
+      className="flex items-center justify-center select-none"
+    >
+      <JarvisSparkOrb isListening={isListening} />
+    </div>
   );
 };
 
