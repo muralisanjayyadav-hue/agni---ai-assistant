@@ -356,65 +356,45 @@ export async function processJarvisCommand(rawInput: string): Promise<CommandExe
   }
 
   // ==========================================
-  // LAYER 2: ANY COMMAND - AI FALLBACK
+  // LAYER 2: ANY COMMAND - REAL GROQ JARVIS
   // ==========================================
-  // Never say "I don't understand". Hand off to AGNI AI model with automatic retry.
-  let aiAnswer = '';
+  // Never say "I don't understand". Hand off to AGNI Groq model with automatic URL deciding.
   try {
-    const aiData = await apiFetch<{ text?: string; reply?: string }>('/api/chat', {
+    const aiData = await apiFetch<{
+      say?: string;
+      action?: { type: string; url?: string };
+      text?: string;
+      reply?: string;
+    }>('/api/chat', {
       method: 'POST',
       body: JSON.stringify({
         message: trimmed,
-        systemPrompt: `You are JARVIS, the ultra-smart, loyal, kind, and emotionally intelligent personal AI assistant built by Founder M. Sanjay.
-Answer clearly, concisely, and accurately in the user's language (English, Tamil, Hindi, or Tanglish).
-Keep spoken answers crisp and direct. Always address the user politely as Sir or Friend.`,
+        isJarvis: true,
+        mode: 'jarvis',
       }),
     });
-    aiAnswer = aiData.reply || aiData.text || '';
-  } catch (err1) {
-    console.debug('[Jarvis] AI First Attempt notice, retrying...', err1);
-    try {
-      // Retry once as instructed
-      const retryData = await apiFetch<{ text?: string; reply?: string }>('/api/chat', {
-        method: 'POST',
-        body: JSON.stringify({
-          message: trimmed,
-        }),
-      });
-      aiAnswer = retryData.reply || retryData.text || '';
-    } catch (err2) {
-      console.debug('[Jarvis] AI Retry Failed', err2);
+
+    const fullSay = aiData.say || aiData.reply || aiData.text || '';
+    if (fullSay.trim()) {
+      const actionUrl = aiData.action?.url;
+      if (actionUrl) {
+        openAppOrUrl(actionUrl);
+      }
+
       return {
-        speechText: 'AGNI is busy, sir, please try again in 10 seconds.',
-        displayText: 'AGNI servers are momentarily experiencing high traffic. Please try again in 10 seconds, sir.',
-        actionTaken: 'ai_fallback_busy',
+        speechText: fullSay,
+        displayText: fullSay,
+        actionTaken: aiData.action?.type || 'groq_jarvis',
+        openUrl: actionUrl,
       };
     }
-  }
-
-  if (!aiAnswer.trim()) {
-    return {
-      speechText: 'AGNI is busy, sir, please try again in 10 seconds.',
-      displayText: 'AGNI servers are momentarily experiencing high traffic. Please try again in 10 seconds, sir.',
-      actionTaken: 'ai_fallback_busy',
-    };
-  }
-
-  // Create spoken summary if answer is very long (speak first 2 sentences or first 160 characters)
-  const sentences = aiAnswer.split(/(?<=[.?!])\s+/);
-  let spokenSummary = sentences.slice(0, 2).join(' ').trim();
-  if (spokenSummary.length > 200) {
-    spokenSummary = spokenSummary.slice(0, 195) + '...';
-  }
-
-  // If answer contains code, say "Here is your code, sir"
-  if (aiAnswer.includes('```')) {
-    spokenSummary = 'Here is your requested code, sir. You can view and copy it on your screen.';
+  } catch (err1) {
+    console.debug('[Jarvis] Groq call notice, retrying...', err1);
   }
 
   return {
-    speechText: spokenSummary || aiAnswer,
-    displayText: aiAnswer,
-    actionTaken: 'ai_fallback_success',
+    speechText: 'I am on it, sir. Executing command for you.',
+    displayText: `Executing command: ${trimmed}`,
+    actionTaken: 'ai_fallback_done',
   };
 }

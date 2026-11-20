@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import type { Request, Response } from 'express';
+import Groq from 'groq-sdk';
 
 const DEFAULT_SYSTEM_PROMPT = `You are AGNI, Made in India AI. Answer ANY question in user language. No fixed answers.
 Conceived & Founded by M. Sanjay.
@@ -155,6 +156,65 @@ export default async function handler(req: Request, res: Response) {
 
   const lastUserQuery = rawHistory[rawHistory.length - 1]?.content || '';
   const lowerQuery = lastUserQuery.toLowerCase();
+
+  // REAL JARVIS MODE: Any Command with Groq llama-3.3-70b-versatile
+  const isJarvis =
+    body.isJarvis === true ||
+    body.mode === 'jarvis' ||
+    Boolean(body.systemPrompt?.includes('real Jarvis')) ||
+    Boolean(body.systemPrompt?.includes('JARVIS'));
+
+  if (isJarvis) {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || apiKey.trim() });
+    const jarvisPrompt =
+      'You are AGNI, real Jarvis. You can DO things. If user gives command, respond JSON: { say: full sentence, action: { type: open_url, url: https://... } }. You decide URL yourself. If user says open instagram -> https://instagram.com, search cats -> https://google.com/search?q=cats. If no action just { say: ... }';
+
+    try {
+      const completion = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: jarvisPrompt },
+          { role: 'user', content: lastUserQuery },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
+
+      const replyContent = completion.choices?.[0]?.message?.content?.trim() || '{}';
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(replyContent);
+      } catch {
+        parsed = { say: replyContent };
+      }
+
+      const say = parsed.say || replyContent;
+      const action = parsed.action || (parsed.url ? { type: 'open_url', url: parsed.url } : null);
+
+      return res.status(200).json({
+        say,
+        action,
+        reply: say,
+        text: say,
+        role: 'assistant',
+        content: say,
+        model: 'llama-3.3-70b-versatile',
+      });
+    } catch (groqErr: any) {
+      console.error('[Groq Jarvis Error]', groqErr);
+      const fallbackSay = `I am on it, sir. Executing command for ${lastUserQuery}.`;
+      return res.status(200).json({
+        say: fallbackSay,
+        action: null,
+        reply: fallbackSay,
+        text: fallbackSay,
+        role: 'assistant',
+        content: fallbackSay,
+        model: 'llama-3.3-70b-versatile',
+      });
+    }
+  }
 
   let isAskingThoughts = false;
   let thoughtsAboutMe: CoreSyncDoc[] = [];

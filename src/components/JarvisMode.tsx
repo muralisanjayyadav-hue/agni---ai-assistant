@@ -92,9 +92,9 @@ export const JarvisMode: React.FC<JarvisModeProps> = ({ onClose, onNavigate }) =
           onClick={toggleListening}
           className="my-2 sm:my-4 flex items-center justify-center cursor-pointer select-none"
           style={{ width: 320, height: 320, maxWidth: '85vw', maxHeight: '85vw' }}
-          title={isListening ? 'Jarvis is listening... (1.18x)' : 'Tap orb to speak'}
+          title={isListening ? 'Jarvis is listening... (1.18x)' : isSpeaking ? 'Jarvis is speaking (pulsing)...' : 'Tap orb to speak'}
         >
-          <JarvisSparkOrb isListening={isListening} />
+          <JarvisSparkOrb isListening={isListening} isSpeaking={isSpeaking} />
         </div>
 
         {/* Conversation Dialogue Display */}

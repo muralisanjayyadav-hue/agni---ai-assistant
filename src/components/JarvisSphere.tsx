@@ -11,6 +11,7 @@ interface JarvisSphereProps {
 
 export const JarvisSphere: React.FC<JarvisSphereProps> = ({
   isListening,
+  isSpeaking,
   onClick,
   size = 280,
 }) => {
@@ -20,7 +21,7 @@ export const JarvisSphere: React.FC<JarvisSphereProps> = ({
       style={{ width: size, height: size, cursor: 'pointer' }}
       className="flex items-center justify-center select-none"
     >
-      <JarvisSparkOrb isListening={isListening} />
+      <JarvisSparkOrb isListening={isListening} isSpeaking={isSpeaking} />
     </div>
   );
 };

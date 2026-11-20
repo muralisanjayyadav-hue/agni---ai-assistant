@@ -4,6 +4,8 @@ import type { CSSProperties } from 'react';
 export interface JarvisSparkOrbProps {
   /** When true: 1.18x scale, rings spin 2x faster, brighter glow, jittering dust. */
   isListening?: boolean;
+  /** When true: orb pulses with speech energy. */
+  isSpeaking?: boolean;
   className?: string;
   style?: CSSProperties;
   /** Canvas fill colour. Leave undefined for a transparent canvas (sits on the page background). */
@@ -190,14 +192,25 @@ function drawRing(
 
 /* ---------- component ---------- */
 
-export function JarvisSparkOrb({ isListening = false, className, style, background }: JarvisSparkOrbProps) {
+export function JarvisSparkOrb({
+  isListening = false,
+  isSpeaking = false,
+  className,
+  style,
+  background,
+}: JarvisSparkOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const listeningRef = useRef(isListening);
+  const speakingRef = useRef(isSpeaking);
   const backgroundRef = useRef(background);
 
   useEffect(() => {
     listeningRef.current = isListening;
   }, [isListening]);
+
+  useEffect(() => {
+    speakingRef.current = isSpeaking;
+  }, [isSpeaking]);
 
   useEffect(() => {
     backgroundRef.current = background;
@@ -246,8 +259,9 @@ export function JarvisSparkOrb({ isListening = false, className, style, backgrou
       const cx = w / 2;
       const cy = h / 2;
       const R = Math.min(w, h) * 0.21 * (1 + 0.18 * listen);
-      const glow = 1 + 0.6 * listen;
-      const speedMul = 1 + listen; // 2x when listening
+      const isSpk = speakingRef.current;
+      const glow = (1 + 0.6 * listen) * (isSpk ? 1.35 + 0.25 * Math.sin(time * 10) : 1);
+      const speedMul = 1 + listen + (isSpk ? 0.6 : 0); // 2x when listening
       ringPhase[0] += dt * 0.55 * speedMul;
       ringPhase[1] += dt * 0.4 * speedMul;
 
@@ -352,7 +366,8 @@ export function JarvisSparkOrb({ isListening = false, className, style, backgrou
       }
 
       // ---- starburst core ----
-      const pulse = 1 + 0.06 * Math.sin(time * 3.1) + 0.1 * listen * Math.sin(time * 9);
+      const speakPulse = isSpk ? 0.22 * Math.sin(time * 12) : 0;
+      const pulse = 1 + 0.06 * Math.sin(time * 3.1) + 0.1 * listen * Math.sin(time * 9) + speakPulse;
       // long spikes + short rays
       for (let i = 0; i < 18; i++) {
         const long = i % 3 === 0;

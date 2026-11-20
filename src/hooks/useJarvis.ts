@@ -1,11 +1,11 @@
 /**
- * AGNI Jarvis Mode - Voice & Speech Hook
- * Web Speech API + SpeechSynthesis + Continuous Listening
- * Free For All • By M. Sanjay
+ * AGNI Jarvis Mode - Real Voice & Speech Hook
+ * Powered by GROQ llama-3.3-70b-versatile
+ * 100% Free For All • Full Sentence Speech • Real Action Execution
+ * Built by Founder M. Sanjay
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { processJarvisCommand, CommandExecutionResult } from '../utils/jarvisCommands';
 
 export interface UseJarvisReturn {
   isListening: boolean;
@@ -45,24 +45,41 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
     }
   }, []);
 
-  // Speak text with en-IN or en-US voice
-  const speakAloud = useCallback((text: string, onDone?: () => void) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+  // Sync isSpeaking with window.speechSynthesis.speaking
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const interval = setInterval(() => {
+      const active = window.speechSynthesis.speaking;
+      if (active !== isSpeakingRef.current) {
+        setIsSpeaking(active);
+        isSpeakingRef.current = active;
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Speak full text response with en-IN voice, rate 1, no split('.')
+  const speakAloud = useCallback((fullText: string, onDone?: () => void) => {
+    if (!fullText || typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (onDone) onDone();
       return;
     }
 
     try {
+      // 1. Cancel old speech
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+
+      // 2. Create new SpeechSynthesisUtterance with full text (no split)
+      const utterance = new SpeechSynthesisUtterance(fullText);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
 
-      // Select natural sounding Indian or English voice
+      // 3. Select en-IN voice
       const voices = window.speechSynthesis.getVoices();
       const preferredVoice =
         voices.find((v) => v.lang.includes('en-IN') && !v.name.includes('Google')) ||
         voices.find((v) => v.lang.includes('en-IN')) ||
+        voices.find((v) => v.lang.includes('en-GB')) ||
         voices.find((v) => v.lang.includes('en-US')) ||
         voices[0];
 
@@ -94,6 +111,9 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         if (onDone) onDone();
       };
 
+      // 4. When speaking, set isSpeaking=true so orb pulses
+      setIsSpeaking(true);
+      isSpeakingRef.current = true;
       window.speechSynthesis.speak(utterance);
     } catch (err) {
       console.debug('[Jarvis Speech Utterance Error]', err);
@@ -103,7 +123,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
     }
   }, []);
 
-  // Core execution handler for any input command
+  // Core execution handler for ANY command (Groq AI)
   const submitCommand = useCallback(
     async (commandText: string) => {
       const cleanInput = commandText.trim();
@@ -113,19 +133,35 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       setYouSaid(cleanInput);
       setIsThinking(true);
       isThinkingRef.current = true;
-      setJarvisReply('Jarvis is thinking...');
+      setJarvisReply('Jarvis is processing...');
 
       try {
-        const result: CommandExecutionResult = await processJarvisCommand(cleanInput);
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: cleanInput,
+            isJarvis: true,
+            mode: 'jarvis',
+          }),
+        });
 
-        setJarvisReply(result.displayText);
-        setLastAction(result.actionTaken);
+        const data = await res.json();
+        const sayText = data.say || data.reply || data.text || 'I have completed your request, Sir.';
+        const actionUrl = data.action?.url;
+
+        setJarvisReply(sayText);
+        setLastAction(data.action?.type || 'command_completed');
         setIsThinking(false);
         isThinkingRef.current = false;
 
-        // Speak response aloud
-        speakAloud(result.speechText, () => {
-          if (result.shouldClose) {
+        // Frontend: if response has action.url, window.open(action.url, '_blank'), then speak full say
+        if (actionUrl && typeof window !== 'undefined') {
+          window.open(actionUrl, '_blank');
+        }
+
+        speakAloud(sayText, () => {
+          if (data.action?.type === 'close' || sayText.toLowerCase().includes('closing jarvis')) {
             setTimeout(() => {
               if (onClose) onClose();
               else if (onNavigate) onNavigate('/');
@@ -133,7 +169,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
           }
         });
       } catch (err) {
-        console.error('[Jarvis Command Execution Error]', err);
+        console.error('[Jarvis Command Error]', err);
         setIsThinking(false);
         isThinkingRef.current = false;
         const fallbackText = 'Let me look into that for you, Sir.';
@@ -198,6 +234,20 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       setMicPermission('granted');
     };
 
+    recognition.onaudiostart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onspeechstart = () => {
+      // User is talking
+      setIsListening(true);
+    };
+
+    recognition.onspeechend = () => {
+      // User stopped talking
+      setIsListening(false);
+    };
+
     recognition.onresult = (event: any) => {
       // Don't process input while Jarvis itself is speaking to prevent feedback loop
       if (isSpeakingRef.current) return;
@@ -206,6 +256,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       if (lastResult && lastResult.isFinal) {
         const transcript = lastResult[0]?.transcript?.trim();
         if (transcript) {
+          setIsListening(false);
           submitCommand(transcript);
         }
       }

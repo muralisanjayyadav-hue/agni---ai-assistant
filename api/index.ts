@@ -923,6 +923,66 @@ app.post(['/api/chat', '/chat', '/api/agni'], async (req: Request, res: Response
 
     const lastUserQuery = history[history.length - 1]?.content || '';
 
+    // REAL JARVIS MODE: Any Command with Groq llama-3.3-70b-versatile
+    const isJarvis =
+      req.body.isJarvis === true ||
+      req.body.mode === 'jarvis' ||
+      Boolean(req.body.systemPrompt?.includes('real Jarvis')) ||
+      Boolean(req.body.systemPrompt?.includes('JARVIS'));
+
+    if (isJarvis) {
+      const jarvisPrompt =
+        'You are AGNI, real Jarvis. You can DO things. If user gives command, respond JSON: { say: full sentence, action: { type: open_url, url: https://... } }. You decide URL yourself. If user says open instagram -> https://instagram.com, search cats -> https://google.com/search?q=cats. If no action just { say: ... }';
+
+      try {
+        const completion = await groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: jarvisPrompt },
+            { role: 'user', content: lastUserQuery },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+          max_tokens: 1024,
+        });
+
+        const replyContent = completion.choices?.[0]?.message?.content?.trim() || '{}';
+        let parsed: any = {};
+        try {
+          parsed = JSON.parse(replyContent);
+        } catch {
+          parsed = { say: replyContent };
+        }
+
+        const say = parsed.say || replyContent;
+        const action = parsed.action || (parsed.url ? { type: 'open_url', url: parsed.url } : null);
+
+        recordChatUsage(reqEmail || 'guest@agni.ai', lastUserQuery, 'llama-3.3-70b-versatile', 120);
+
+        return res.status(200).json({
+          say,
+          action,
+          reply: say,
+          text: say,
+          role: 'assistant',
+          content: say,
+          model: 'llama-3.3-70b-versatile',
+        });
+      } catch (groqErr: any) {
+        console.error('[Groq Jarvis Error]', groqErr);
+        const fallbackSay = `I am on it, sir. Executing command for ${lastUserQuery}.`;
+        return res.status(200).json({
+          say: fallbackSay,
+          action: null,
+          reply: fallbackSay,
+          text: fallbackSay,
+          role: 'assistant',
+          content: fallbackSay,
+          model: 'llama-3.3-70b-versatile',
+        });
+      }
+    }
+
     let currentFounder: 'Sanjay' | 'Hasini' = 'Sanjay';
     let otherFounder: 'Sanjay' | 'Hasini' = 'Hasini';
     if (reqEmail === 'itzmehasu94444@gmail.com') {
