@@ -1,0 +1,27 @@
+{
+  "name": "agni-ai-assistant",
+  "productName": "AGNI",
+  "version": "1.0.0",
+  "description": "AGNI - always-on voice AI assistant with total laptop control (Windows 11)",
+  "main": "main.js",
+  "author": "Sanjay",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "dependencies": {
+    "loudness": "^0.4.2"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.sanjay.agni",
+    "productName": "AGNI",
+    "files": ["main.js", "preload.js", "commands.js", "system.js", "config.js", "index.html", "orb.html"],
+    "extraResources": ["python", "models"],
+    "win": { "target": "nsis" }
+  }
+}

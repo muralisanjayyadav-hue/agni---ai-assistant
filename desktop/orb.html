@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AGNI Orb</title>
+<style>
+  html, body {
+    margin: 0;
+    width: 80px;
+    height: 80px;
+    background: transparent;
+    overflow: hidden;
+    user-select: none;
+  }
+  #wrap {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    width: 60px;
+    height: 60px;
+    cursor: pointer;
+  }
+  #ring {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 212, 255, 0.55);
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.45);
+    transition: transform 0.08s linear, opacity 0.3s;
+  }
+  #core {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #b6f7ff 0%, #00D4FF 32%, #04465f 74%, #020210 100%);
+    box-shadow: 0 0 18px #00D4FF, 0 0 42px rgba(0, 212, 255, 0.5);
+    animation: breathe 2.6s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(0.94); }
+    50% { transform: scale(1.04); }
+  }
+  body.awake #core { animation-duration: 1.2s; }
+  body.speak #core { animation-duration: 0.55s; filter: brightness(1.25); }
+  body.off #core { animation: none; filter: grayscale(1) brightness(0.45); box-shadow: none; }
+  body.off #ring { opacity: 0.15; }
+  @media (prefers-reduced-motion: reduce) { #core { animation: none; } }
+</style>
+</head>
+<body>
+  <div id="wrap" title="AGNI - click to open, drag to move">
+    <div id="ring"></div>
+    <div id="core"></div>
+  </div>
+<script>
+  const wrap = document.getElementById('wrap');
+  const ring = document.getElementById('ring');
+  let lvl = 0;
+
+  agni.on('state', (s) => {
+    document.body.classList.toggle('off', !s.alwaysListening);
+    document.body.classList.toggle('speak', !!s.speaking);
+    document.body.classList.toggle('awake', !!s.session && !s.speaking);
+  });
+
+  agni.on('level', (v) => {
+    lvl = Math.max(lvl, v);
+  });
+
+  setInterval(() => {
+    ring.style.transform = 'scale(' + (1 + lvl * 0.35).toFixed(3) + ')';
+    lvl *= 0.6;
+  }, 60);
+
+  // click = open HUD, drag = reposition floating orb
+  let down = null, moved = false;
+  wrap.addEventListener('mousedown', (e) => {
+    down = { x: e.screenX, y: e.screenY };
+    moved = false;
+    agni.orbDragStart();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!down) return;
+    const dx = e.screenX - down.x;
+    const dy = e.screenY - down.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+    if (moved) agni.orbDrag(dx, dy);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (down && !moved) agni.showMain();
+    down = null;
+  });
+</script>
+</body>
+</html>
