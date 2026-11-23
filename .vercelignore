@@ -1,3 +1,6 @@
-# Exclude Android build directories from Vercel deployment
+# Exclude Android and Desktop build directories from Vercel deployment
 android/
+desktop/
 node_modules/
+.git/
+
