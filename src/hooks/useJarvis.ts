@@ -36,6 +36,8 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
   const shouldListenRef = useRef<boolean>(true);
   const isSpeakingRef = useRef<boolean>(false);
   const isThinkingRef = useRef<boolean>(false);
+  const onNavigateRef = useRef(onNavigate);
+  const onCloseRef = useRef(onClose);
 
   // Audio capture & fallback references
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -43,9 +45,15 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const whisperTimerRef = useRef<any>(null);
   const speechDetectedRef = useRef<boolean>(false);
+  const silenceStartRef = useRef<number | null>(null);
   const isTranscribingRef = useRef<boolean>(false);
+  const vadIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    onNavigateRef.current = onNavigate;
+    onCloseRef.current = onClose;
+  }, [onNavigate, onClose]);
 
   // Stop current speech
   const stopSpeaking = useCallback(() => {
@@ -154,6 +162,20 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         return;
       }
 
+      // Check for Founder Identity queries
+      const lower = cleanInput.toLowerCase();
+      if (
+        /\b(who (is|are|was) (ur|your|the )?(founder|creator|maker|developer|architect|author)|who (made|created|built|developed|founded) (you|u|agni)|whose ai are you|who is m\.?\s*sanjay|tell me about (the )?founder|founder of agni)\b/i.test(lower)
+      ) {
+        const founderReply = 'I am AGNI, created by M. Sanjay, Founder M. Sanjay.';
+        setJarvisReply(founderReply);
+        setLastAction('founder_identity');
+        setIsThinking(false);
+        isThinkingRef.current = false;
+        speakAloud(founderReply);
+        return;
+      }
+
       setIsThinking(true);
       isThinkingRef.current = true;
       setJarvisReply('Jarvis is processing...');
@@ -186,8 +208,8 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         speakAloud(sayText, () => {
           if (data.action?.type === 'close' || sayText.toLowerCase().includes('closing jarvis')) {
             setTimeout(() => {
-              if (onClose) onClose();
-              else if (onNavigate) onNavigate('/');
+              if (onCloseRef.current) onCloseRef.current();
+              else if (onNavigateRef.current) onNavigateRef.current('/');
             }, 1000);
           }
         });
@@ -200,7 +222,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         speakAloud(fallbackText);
       }
     },
-    [onClose, onNavigate, speakAloud, stopSpeaking]
+    [speakAloud, stopSpeaking]
   );
 
   // Acquire microphone stream & initialize AnalyserNode
@@ -262,7 +284,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       try {
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const audioBlob = new Blob(chunks, { type: mimeType });
-        if (audioBlob.size < 600) {
+        if (audioBlob.size < 300) {
           isTranscribingRef.current = false;
           return;
         }
@@ -280,6 +302,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
             const data = await res.json();
             const text = (data.text || data.transcription || '').trim();
             if (text) {
+              console.log('[Jarvis Whisper Transcribed]:', text);
               setYouSaid(text);
               submitCommand(text);
             }
@@ -297,12 +320,21 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
     [submitCommand]
   );
 
+  const triggerWhisperTranscription = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+  }, []);
+
   // Start Recognition
   const startListening = useCallback(async () => {
     shouldListenRef.current = true;
     speechDetectedRef.current = false;
+    silenceStartRef.current = null;
 
-    // 1. Root cause fix: Acquire getUserMedia FIRST
+    // 1. Acquire getUserMedia
     const stream = await ensureMediaStream();
     if (!stream) {
       console.warn('[Jarvis] Could not acquire audio stream');
@@ -311,7 +343,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
 
     setIsListening(true);
 
-    // 2. Start MediaRecorder for Whisper fallback (record live audio)
+    // 2. Start MediaRecorder for Whisper fallback (record live audio continuously)
     try {
       audioChunksRef.current = [];
       const supportedMime =
@@ -333,28 +365,53 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
             audioChunksRef.current.push(e.data);
           }
         };
-        recorder.start(200);
+        recorder.onstop = () => {
+          const chunks = [...audioChunksRef.current];
+          audioChunksRef.current = [];
+          if (chunks.length > 0) {
+            transcribeAudioChunks(chunks);
+          }
+          // Restart recorder if still supposed to listen
+          if (shouldListenRef.current && !isSpeakingRef.current && !isThinkingRef.current) {
+            try {
+              recorder.start(100);
+            } catch {}
+          }
+        };
+        recorder.start(100);
         mediaRecorderRef.current = recorder;
       }
     } catch (recErr) {
       console.warn('[Jarvis MediaRecorder notice]', recErr);
     }
 
-    // 3. Fallback Whisper timer (if SpeechRecognition fails or does not transcribe within 3.5 sec)
-    if (whisperTimerRef.current) clearTimeout(whisperTimerRef.current);
-    whisperTimerRef.current = setTimeout(() => {
-      if (shouldListenRef.current && !speechDetectedRef.current && audioChunksRef.current.length > 0) {
-        console.log('[Jarvis] SpeechRecognition silent or unavailable -> triggering Groq Whisper fallback');
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          try {
-            mediaRecorderRef.current.stop();
-          } catch {}
+    // 3. Continuous Audio Energy VAD (Voice Activity Detection)
+    if (vadIntervalRef.current) clearInterval(vadIntervalRef.current);
+    vadIntervalRef.current = setInterval(() => {
+      if (!shouldListenRef.current || isSpeakingRef.current || isThinkingRef.current) return;
+      if (!analyserRef.current) return;
+
+      const freqData = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(freqData);
+
+      let sum = 0;
+      for (let k = 0; k < freqData.length; k++) sum += freqData[k];
+      const avgEnergy = sum / (freqData.length || 1);
+
+      if (avgEnergy > 8) {
+        speechDetectedRef.current = true;
+        silenceStartRef.current = null;
+      } else if (speechDetectedRef.current) {
+        if (!silenceStartRef.current) {
+          silenceStartRef.current = Date.now();
+        } else if (Date.now() - silenceStartRef.current > 1200) {
+          // 1.2s silence after user finished speaking -> transcribe & submit!
+          speechDetectedRef.current = false;
+          silenceStartRef.current = null;
+          triggerWhisperTranscription();
         }
-        const chunks = [...audioChunksRef.current];
-        audioChunksRef.current = [];
-        transcribeAudioChunks(chunks);
       }
-    }, 3800);
+    }, 100);
 
     // 4. Start SpeechRecognition
     if (recognitionRef.current) {
@@ -364,15 +421,18 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         console.debug('[Jarvis Recognition start notice]', e);
       }
     }
-  }, [ensureMediaStream, transcribeAudioChunks]);
+  }, [ensureMediaStream, transcribeAudioChunks, triggerWhisperTranscription]);
 
   // Stop Recognition
   const stopListening = useCallback(() => {
     shouldListenRef.current = false;
     setIsListening(false);
-    if (whisperTimerRef.current) {
-      clearTimeout(whisperTimerRef.current);
-      whisperTimerRef.current = null;
+    speechDetectedRef.current = false;
+    silenceStartRef.current = null;
+
+    if (vadIntervalRef.current) {
+      clearInterval(vadIntervalRef.current);
+      vadIntervalRef.current = null;
     }
     if (recognitionRef.current) {
       try {
@@ -382,14 +442,9 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       try {
         mediaRecorderRef.current.stop();
-        if (!speechDetectedRef.current && audioChunksRef.current.length > 0) {
-          const chunks = [...audioChunksRef.current];
-          audioChunksRef.current = [];
-          transcribeAudioChunks(chunks);
-        }
       } catch {}
     }
-  }, [transcribeAudioChunks]);
+  }, []);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
@@ -447,10 +502,6 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         recognition.onresult = (event: any) => {
           if (isSpeakingRef.current) return;
           speechDetectedRef.current = true;
-          if (whisperTimerRef.current) {
-            clearTimeout(whisperTimerRef.current);
-            whisperTimerRef.current = null;
-          }
 
           let finalTranscript = '';
           let interimTranscript = '';
@@ -467,7 +518,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
           setYouSaid(text);
 
           if (finalTranscript) {
-            setIsListening(false);
+            speechDetectedRef.current = false;
             submitCommand(finalTranscript);
           }
         };
@@ -480,18 +531,18 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
             shouldListenRef.current = false;
           }
           // On 'network' error (e.g. in Electron where Google Speech isn't bundled):
-          // Immediately trigger Groq Whisper fallback with recorded audio
-          if (event.error === 'network' && audioChunksRef.current.length > 0) {
-            console.log('[Jarvis] WebSpeech network error -> immediate Groq Whisper fallback');
-            const chunks = [...audioChunksRef.current];
-            audioChunksRef.current = [];
-            transcribeAudioChunks(chunks);
-          }
+          // DO NOT stop listening! MediaRecorder + Audio Energy VAD handles transcription!
         };
 
         recognition.onend = () => {
-          setIsListening(false);
-          // Do not clear input on onend
+          // If still should listen, keep listening active for MediaRecorder / Whisper
+          if (!shouldListenRef.current) {
+            setIsListening(false);
+          } else if (!isSpeakingRef.current && !isThinkingRef.current) {
+            try {
+              recognition.start();
+            } catch {}
+          }
         };
 
         recognitionRef.current = recognition;
@@ -510,7 +561,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
 
     return () => {
       shouldListenRef.current = false;
-      if (whisperTimerRef.current) clearTimeout(whisperTimerRef.current);
+      if (vadIntervalRef.current) clearInterval(vadIntervalRef.current);
       if (recognition) {
         try {
           recognition.stop();
@@ -523,7 +574,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       }
       stopSpeaking();
     };
-  }, [ensureMediaStream, speakAloud, startListening, stopSpeaking, submitCommand, transcribeAudioChunks]);
+  }, []); // Run ONCE on mount so state changes don't destroy listener!
 
   return {
     isListening,

@@ -490,12 +490,14 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
               setErrorMessage('Microphone access blocked. Click "Allow" in browser permissions or type your question.');
               stopListening();
             }
+            // For 'network' error (e.g. Electron) or 'no-speech', do not stop.
+            // The active MediaRecorder + Audio Energy VAD will transcribe via Groq Whisper!
           };
 
           recognition.onend = () => {
-            // Do not clear input on onend
-            if (voiceState === 'listening' && !hasSpokenRef.current) {
-              setVoiceState('idle');
+            // If active and user spoke, auto submit
+            if (activeRef.current && hasSpokenRef.current && !isTranscribingRef.current) {
+              finishListeningAndSubmit();
             }
           };
 
@@ -536,7 +538,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
           sum += freqData[k];
         }
         const avgEnergy = sum / (freqData.length || 1);
-        if (avgEnergy > 16) {
+        if (avgEnergy > 8) {
           hasSpokenRef.current = true;
           if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
@@ -545,7 +547,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
         } else if (hasSpokenRef.current && !silenceTimerRef.current && !isTranscribingRef.current) {
           silenceTimerRef.current = setTimeout(() => {
             finishListeningAndSubmit();
-          }, 2200);
+          }, 1400);
         }
       }
 
@@ -555,13 +557,11 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
         let barHeight = 4;
         const x = i * (barWidth + 3) + 2;
 
-        if (freqData && freqData.length > 0) {
-          const dataIdx = Math.floor((i / numBars) * freqData.length);
-          const rawVal = freqData[dataIdx] || 0;
-          barHeight = Math.max(4, (rawVal / 255) * (height * 0.85));
-        } else if (voiceState === 'listening') {
-          const wave = Math.sin(phase + i * 0.45) * 0.5 + 0.5;
-          barHeight = 8 + wave * (height * 0.6);
+        if (voiceState === 'listening') {
+          const rawVal = (freqData && freqData.length > 0) ? (freqData[Math.floor((i / numBars) * freqData.length)] || 0) : 0;
+          const liveBoost = (rawVal / 255) * (height * 0.55);
+          const wave = (Math.sin(phase + i * 0.45) * 0.5 + 0.5) * (height * 0.4);
+          barHeight = Math.max(8, 8 + wave + liveBoost);
         } else if (voiceState === 'speaking') {
           const harmonic =
             Math.sin(phase * 1.8 + i * 0.35) * Math.cos(phase * 0.9 + i * 0.25);
@@ -569,6 +569,8 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
         } else if (voiceState === 'thinking') {
           const wave = Math.sin(phase * 2 + i * 0.3) * 0.5 + 0.5;
           barHeight = 6 + wave * (height * 0.35);
+        } else {
+          barHeight = 4;
         }
 
         const gradient = ctx.createLinearGradient(0, centerY - barHeight / 2, 0, centerY + barHeight / 2);
@@ -769,7 +771,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
           const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
           audioChunksRef.current = [];
 
-          if (audioBlob.size < 1200) {
+          if (audioBlob.size < 300) {
             // Very small blob means user tapped orb without speaking
             stopListening();
             isTranscribingRef.current = false;

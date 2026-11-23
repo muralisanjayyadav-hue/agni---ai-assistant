@@ -560,9 +560,9 @@ function clearFounderLockout(ip: string) {
 // Helper to detect founder queries with 100% precision
 function getFounderAnswerIfApplicable(query: string): string | null {
   const q = query.trim().toLowerCase();
-  const founderPattern = /\b(who (is|was) (the )?(founder|creator|maker|developer|architect|author) of agni|who (made|created|built|developed|founded) (you|agni)|who is m\.?\s*sanjay|tell me about (the )?founder|tell me about m\.?\s*sanjay|founder of agni)\b/i;
+  const founderPattern = /\b(who (is|are|was) (ur|your|the )?(founder|creator|maker|developer|architect|author)|who (made|created|built|developed|founded) (you|u|agni)|whose ai are you|who is m\.?\s*sanjay|tell me about (the )?founder|tell me about m\.?\s*sanjay|founder of agni)\b/i;
   if (founderPattern.test(q)) {
-    return "I was founded by M. Sanjay, a multi-sports person and a kind-hearted innovator. He is the founder of Project AGNI.\n\nM. Sanjay is a multi-sports person and a kind-hearted person. He is the founder of AGNI. M. Sanjay founded AGNI to solve day-to-day life problems which are faced by people. His vision is Project AGNI - Made in India, To Serve the World - a unified multimodal personal AI assistant that can explain concepts step-by-step, analyze diagrams, fetch live discoveries, and organize tasks, just like a true human friend. He believes AI should be helpful, humble, and human.";
+    return "I am AGNI, created by M. Sanjay, Founder M. Sanjay.";
   }
   return null;
 }

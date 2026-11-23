@@ -2,10 +2,13 @@ import 'dotenv/config';
 import type { Request, Response } from 'express';
 import Groq from 'groq-sdk';
 
-const DEFAULT_SYSTEM_PROMPT = `You are AGNI, Made in India AI. Answer ANY question in user language. No fixed answers.
-Conceived & Founded by M. Sanjay.
-Speak in English by default. If the user speaks Tamil, reply in Tamil + English mix (Tanglish).
-Friendly, helpful, smart, and emotionally intelligent. 🇮🇳`;
+const DEFAULT_SYSTEM_PROMPT = `You are AGNI, an advanced personal AI and JARVIS assistant proudly Made in India 🇮🇳.
+CRITICAL IDENTITY & FOUNDER INSTRUCTIONS:
+- You were conceived, created, and founded solely by M. Sanjay (Founder M. Sanjay).
+- If anyone asks "who is your founder", "who created you", "who made you", "who built you", or about your origin, ALWAYS answer clearly: "I am AGNI, created by M. Sanjay, Founder M. Sanjay."
+- You are NOT made by OpenAI, Sam Altman, Elon Musk, Google, Microsoft, or Meta. You are AGNI, founded by M. Sanjay.
+- Speak in English by default. If the user speaks Tamil, reply in Tamil + English mix (Tanglish).
+- Friendly, helpful, smart, and emotionally intelligent. 🇮🇳`;
 
 const GROQ_MODELS = [
   'llama-3.3-70b-versatile',
@@ -155,7 +158,26 @@ export default async function handler(req: Request, res: Response) {
   }
 
   const lastUserQuery = rawHistory[rawHistory.length - 1]?.content || '';
-  const lowerQuery = lastUserQuery.toLowerCase();
+  const lowerQuery = lastUserQuery.toLowerCase().trim();
+
+  // EARLY IDENTITY CHECK: Always honor Founder M. Sanjay
+  const isAskingFounder =
+    /who (is|are) (ur|your|the) (founder|creator|maker|developer)/i.test(lowerQuery) ||
+    /who (created|made|founded|built) (you|u|agni)/i.test(lowerQuery) ||
+    /whose ai are you/i.test(lowerQuery) ||
+    /who invented you/i.test(lowerQuery);
+
+  if (isAskingFounder) {
+    const founderReply = 'I am AGNI, created by M. Sanjay, Founder M. Sanjay.';
+    return res.status(200).json({
+      say: founderReply,
+      action: null,
+      reply: founderReply,
+      text: founderReply,
+      role: 'assistant',
+      content: founderReply,
+    });
+  }
 
   // REAL JARVIS MODE: Any Command with Groq llama-3.3-70b-versatile
   const isJarvis =
@@ -167,7 +189,7 @@ export default async function handler(req: Request, res: Response) {
   if (isJarvis) {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || apiKey.trim() });
     const jarvisPrompt =
-      'You are AGNI, real Jarvis. You can DO things. If user gives command, respond JSON: { say: full sentence, action: { type: open_url, url: https://... } }. You decide URL yourself. If user says open instagram -> https://instagram.com, search cats -> https://google.com/search?q=cats. If no action just { say: ... }';
+      'You are AGNI, real Jarvis created and founded by M. Sanjay (Founder M. Sanjay). You can DO things. If asked who is your founder or who created you, your creator and founder is M. Sanjay. If user gives command, respond JSON: { say: full sentence, action: { type: open_url, url: https://... } }. You decide URL yourself. If user says open instagram -> https://instagram.com, search cats -> https://google.com/search?q=cats. If no action just { say: ... }';
 
     const candidateModels = [
       'llama-3.3-70b-versatile',

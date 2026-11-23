@@ -113,6 +113,18 @@ export async function processJarvisCommand(rawInput: string): Promise<CommandExe
     };
   }
 
+  // 1.1 FOUNDER IDENTITY (M. Sanjay)
+  if (
+    /\b(who (is|are|was) (ur|your|the )?(founder|creator|maker|developer|architect|author)|who (made|created|built|developed|founded) (you|u|agni)|whose ai are you|who is m\.?\s*sanjay|tell me about (the )?founder|founder of agni)\b/i.test(clean)
+  ) {
+    const founderText = 'I am AGNI, created by M. Sanjay, Founder M. Sanjay.';
+    return {
+      speechText: founderText,
+      displayText: founderText,
+      actionTaken: 'founder_identity',
+    };
+  }
+
   // 2. TIME & DATE
   if (
     clean.includes('time') ||

@@ -87,14 +87,11 @@ export const VoiceWaveChart: React.FC<VoiceWaveChartProps> = ({
       for (let i = 0; i < numBars; i++) {
         let barHeight = 6; // baseline idle height
 
-        if (freqData && freqData.length > 0) {
-          const dataIdx = Math.floor((i / numBars) * freqData.length);
-          const rawVal = freqData[dataIdx] || 0;
-          barHeight = Math.max(6, (rawVal / 255) * (height * 0.85));
-        } else if (voiceState === 'listening') {
-          // Dynamic simulated acoustic ripple when listening
-          const wave = Math.sin(phase + i * 0.4) * 0.5 + 0.5;
-          barHeight = 12 + wave * (height * 0.55);
+        if (voiceState === 'listening') {
+          const rawVal = (freqData && freqData.length > 0) ? (freqData[Math.floor((i / numBars) * freqData.length)] || 0) : 0;
+          const liveBoost = (rawVal / 255) * (height * 0.55);
+          const wave = (Math.sin(phase + i * 0.42) * 0.5 + 0.5) * (height * 0.38);
+          barHeight = Math.max(8, 8 + wave + liveBoost);
         } else if (voiceState === 'speaking') {
           // Harmonic speech resonance oscillation
           const harmonic = Math.sin(phase * 1.5 + i * 0.3) * Math.cos(phase * 0.8 + i * 0.2);
