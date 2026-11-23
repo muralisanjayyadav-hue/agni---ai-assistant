@@ -1,6 +1,6 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import Groq from "groq-sdk";
@@ -1922,18 +1922,39 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Production & Vite Middleware
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  const distPath = path.join(process.cwd(), "dist");
+  const isProduction =
+    process.env.NODE_ENV === "production" ||
+    fs.existsSync(path.join(distPath, "index.html"));
+
+  if (isProduction) {
+    // Clear stale Vite cache to prevent re-optimization loop on startup
+    const viteCacheDir = path.join(process.cwd(), "node_modules", ".vite");
+    if (fs.existsSync(viteCacheDir)) {
+      try {
+        fs.rmSync(viteCacheDir, { recursive: true, force: true });
+        console.log("🧹 [AGNI Server] Cleared stale Vite cache.");
+      } catch {
+        // Non-fatal: cache clear failed, continue
+      }
+    }
+
+    console.log(`📦 [AGNI Server] Production mode — serving static dist from: ${distPath}`);
+    app.use(express.static(distPath, { maxAge: "1h" }));
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else {
+    console.log("🛠️  [AGNI Server] Dev mode — starting Vite middleware...");
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
+      optimizeDeps: {
+        force: false,
+      },
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {

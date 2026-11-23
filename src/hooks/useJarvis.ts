@@ -519,7 +519,11 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
 
           if (finalTranscript) {
             speechDetectedRef.current = false;
-            submitCommand(finalTranscript);
+            setIsListening(false);
+            stopListening();
+            setTimeout(() => {
+              submitCommand(finalTranscript);
+            }, 300);
           }
         };
 
