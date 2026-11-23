@@ -329,6 +329,17 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
 
   // Start speech recognition & audio capture
   const startListening = async (langCode: string = currentLangConfig.speechCode) => {
+    console.log(
+      'SpeechRecognition available:',
+      typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+    );
+    if (typeof navigator !== 'undefined' && (navigator as any).permissions?.query) {
+      (navigator as any).permissions
+        .query({ name: 'microphone' })
+        .then((p: any) => console.log('Mic permission state:', p.state))
+        .catch(() => {});
+    }
+
     stopSpeaking();
     clearStreamInterval();
     setErrorMessage(null);
@@ -430,42 +441,45 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
       }
 
       if (isSpeechRecognitionSupported()) {
-        const recognition = createSpeechRecognition(langCode || 'en-IN');
+        const selectedLanguage = langCode || currentLangConfig.speechCode || 'en-IN';
+        const recognition = createSpeechRecognition(selectedLanguage);
         if (recognition) {
-          recognition.continuous = true;
+          recognition.continuous = false;
           recognition.interimResults = true;
+          recognition.lang = selectedLanguage;
           recognitionRef.current = recognition;
 
           recognition.onresult = (event: any) => {
             hasSpokenRef.current = true;
-            let currentText = '';
-            for (let i = 0; i < event.results.length; ++i) {
-              currentText += event.results[i][0].transcript;
-            }
-            const cleanText = currentText.trim();
-            if (cleanText) {
-              transcriptRef.current = cleanText;
-              setTranscript(cleanText);
-              // Actively type down words into the input bar in real time as user speaks!
-              setTypedInput(cleanText);
-            }
-
-            const last = event.results[event.results.length - 1];
-            if (last.isFinal) {
-              const finalPrompt = cleanText;
-              if (finalPrompt) {
-                transcriptRef.current = finalPrompt;
-                setTypedInput(finalPrompt);
-                // Graceful buffer so user sees their words typed down before auto-submitting
-                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-                silenceTimerRef.current = setTimeout(() => {
-                  if (activeRef.current && transcriptRef.current.trim()) {
-                    const readyPrompt = transcriptRef.current.trim();
-                    stopListening();
-                    handleProcessQuery(readyPrompt);
-                  }
-                }, 1800);
+            let finalTranscript = '';
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              const transcriptChunk = event.results[i][0].transcript;
+              if (event.results[i].isFinal) {
+                finalTranscript += transcriptChunk;
+              } else {
+                interimTranscript += transcriptChunk;
               }
+            }
+            const text = finalTranscript || interimTranscript;
+            console.log("Transcript:", text);
+            // UPDATE BOTH STATES - THIS IS THE FIX:
+            if (setTypedInput) setTypedInput(text);
+            if (setTranscript) setTranscript(text);
+            transcriptRef.current = text;
+
+            if (finalTranscript) {
+              transcriptRef.current = finalTranscript;
+              setTypedInput(finalTranscript);
+              // Final transcript stays in input, Send button enables
+              if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = setTimeout(() => {
+                if (activeRef.current && transcriptRef.current.trim()) {
+                  const readyPrompt = transcriptRef.current.trim();
+                  stopListening();
+                  handleProcessQuery(readyPrompt);
+                }
+              }, 2200);
             }
           };
 
@@ -476,16 +490,12 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
               setErrorMessage('Microphone access blocked. Click "Allow" in browser permissions or type your question.');
               stopListening();
             }
-            // IMPORTANT: If 'network' or 'no-speech' occurs, DO NOT terminate listening!
-            // MediaRecorder is actively recording, and finishListeningAndSubmit processes speech audio!
           };
 
           recognition.onend = () => {
-            // If WebSpeech ends and we already have a full transcript, submit it
-            const recognized = (transcriptRef.current || transcript || typedInput).trim();
-            if (recognized && voiceState === 'listening') {
-              stopListening();
-              handleProcessQuery(recognized);
+            // Do not clear input on onend
+            if (voiceState === 'listening' && !hasSpokenRef.current) {
+              setVoiceState('idle');
             }
           };
 
@@ -631,6 +641,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
     const cleanQuery = queryText.trim();
     setLastUserQuery(cleanQuery);
     setTranscript(cleanQuery);
+    setTypedInput(cleanQuery);
     setVoiceState('thinking');
     setErrorMessage(null);
     setStreamedReply('');
@@ -771,16 +782,29 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
           reader.readAsDataURL(audioBlob);
           reader.onloadend = async () => {
             const base64Audio = (reader.result as string) || '';
+            let res: any = null;
             try {
-              const res = await apiFetch<{ text: string; notice?: string }>('/api/transcribe-audio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  audioBase64: base64Audio,
-                  mimeType,
-                  language: currentLangConfig.label,
-                }),
-              });
+              try {
+                res = await apiFetch<{ text: string; notice?: string }>('/api/transcribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    audioBase64: base64Audio,
+                    mimeType,
+                    language: currentLangConfig.label,
+                  }),
+                });
+              } catch {
+                res = await apiFetch<{ text: string; notice?: string }>('/api/transcribe-audio', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    audioBase64: base64Audio,
+                    mimeType,
+                    language: currentLangConfig.label,
+                  }),
+                });
+              }
 
               const transcribedText = (res.text || '').trim();
               stopListening();

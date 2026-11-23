@@ -1,27 +1,43 @@
 {
-  "name": "agni-ai-assistant",
+  "name": "agni-desktop",
   "productName": "AGNI",
   "version": "1.0.0",
-  "description": "AGNI - always-on voice AI assistant with total laptop control (Windows 11)",
+  "description": "AGNI laptop EXE: your /jarvis page plus real Windows control",
   "main": "main.js",
   "author": "Sanjay",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "electron .",
+    "start": "concurrently -k -s first -n web,app \"npm --prefix .. run dev\" \"wait-on -t 180000 http-get://localhost:3000 && electron .\"",
+    "start:prod": "electron .",
     "dist": "electron-builder --win"
   },
   "dependencies": {
     "loudness": "^0.4.2"
   },
   "devDependencies": {
+    "concurrently": "^9.0.1",
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1"
   },
   "build": {
     "appId": "com.sanjay.agni",
     "productName": "AGNI",
-    "files": ["main.js", "preload.js", "commands.js", "system.js", "config.js", "index.html", "orb.html"],
-    "extraResources": ["python", "models"],
-    "win": { "target": "nsis" }
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "system.js", "system-ipc.js", "config.js"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "artifactName": "AGNI Setup ${version}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "AGNI ${version}.${ext}"
+    }
   }
 }

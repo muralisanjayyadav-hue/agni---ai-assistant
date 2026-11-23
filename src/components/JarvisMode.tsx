@@ -22,6 +22,13 @@ export const JarvisMode: React.FC<JarvisModeProps> = ({ onClose, onNavigate }) =
     stopSpeaking,
   } = useJarvis(onNavigate, onClose);
 
+  // Sync live speech transcript directly into the bottom input box
+  React.useEffect(() => {
+    if (youSaid && youSaid !== 'Say Hey Jarvis or tap the mic below') {
+      setTypedInput(youSaid);
+    }
+  }, [youSaid]);
+
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!typedInput.trim()) return;
@@ -188,7 +195,7 @@ export const JarvisMode: React.FC<JarvisModeProps> = ({ onClose, onNavigate }) =
             id="jarvis-type-input"
             value={typedInput}
             onChange={(e) => setTypedInput(e.target.value)}
-            placeholder="Type command if mic not working... e.g. search Python books"
+            placeholder="Type or tap orb to speak..."
             className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-neutral-500 outline-none"
           />
           <button

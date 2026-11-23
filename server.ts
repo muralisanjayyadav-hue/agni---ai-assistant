@@ -6,6 +6,15 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import Groq from "groq-sdk";
 
 dotenv.config();
+if (!process.env.GROQ_API_KEY) {
+  dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+}
+if (!process.env.GROQ_API_KEY) {
+  dotenv.config({ path: path.resolve(__dirname, ".env") });
+}
+if (!process.env.GROQ_API_KEY) {
+  dotenv.config({ path: path.resolve(__dirname, "../.env") });
+}
 
 const app = express();
 const PORT = 3000;
@@ -13,9 +22,8 @@ const PORT = 3000;
 // ── Startup env check ──────────────────────────────────────────────────────
 if (!process.env.GROQ_API_KEY) {
   console.warn("⚠️  GROQ_API_KEY missing - AGNI will show a friendly setup message instead of crashing.");
-}
-if (!process.env.AGNI_API_KEY && !process.env.GEMINI_API_KEY) {
-  console.warn("⚠️  AGNI_API_KEY / GEMINI_API_KEY missing - secondary AI brain unavailable.");
+} else {
+  console.log("🔥 [AGNI Server] GROQ_API_KEY loaded successfully. Groq AI Brain is active.");
 }
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -1410,59 +1418,48 @@ app.post("/api/tts", async (req, res) => {
   }
 });
 
-// 6c. AGNI Neural Speech-to-Text Audio Transcription (Universal Voice Fallback)
-app.post("/api/transcribe-audio", async (req, res) => {
+// 6c. Audio Transcription Endpoint — PURE GROQ WHISPER (whisper-large-v3)
+app.post(["/api/transcribe", "/api/transcribe-audio"], async (req, res) => {
   try {
-    const { audioBase64, mimeType = "audio/webm", language = "English" } = req.body;
+    const { audioBase64, mimeType = "audio/webm", language } = req.body || {};
     if (!audioBase64 || typeof audioBase64 !== "string") {
       return res.json({ text: "" });
     }
 
-    const ai = getAgniNeuralClient();
-    const cleanBase64 = extractCleanBase64(audioBase64);
-    const cleanMime = extractCleanMimeType(mimeType, "audio/webm");
+    const cleanBase64 = String(audioBase64).replace(/^data:audio\/[^;]+;base64,/, "").trim();
     if (!cleanBase64 || cleanBase64.length < 50) {
       return res.json({ text: "" });
     }
 
-    const response = await generateContentResilient(ai, {
-      model: "gemini-3.5-transcribe",
-      contents: [
-        {
-          inlineData: {
-            data: cleanBase64,
-            mimeType: cleanMime,
-          },
-        },
-        {
-          text: `You are the accurate speech-to-text transcriber for AGNI Voice Assistant.
-Task: Transcribe the user's spoken words faithfully.
-Language context: User is speaking in ${language} or an Indian language (English, Tamil, Hindi, Telugu, Kannada, Malayalam, Bengali, etc.).
-Rules:
-1. Output ONLY the verbatim transcribed words spoken by the user.
-2. Do NOT add any preamble, conversational fluff, quotation marks, or notes.
-3. If the audio contains silence, background breathing, or unintelligible noise with no discernible human speech, return an empty response.`,
-        },
-      ],
-      config: {
-        temperature: 0.1,
-      },
-    });
-
-    let transcribed = (response.text || "").trim();
-    if (
-      transcribed.toLowerCase() === "silent" ||
-      transcribed.toLowerCase() === "silence" ||
-      transcribed.toLowerCase().includes("no audio detected") ||
-      transcribed.toLowerCase().includes("no discernible") ||
-      transcribed === '""'
-    ) {
-      transcribed = "";
+    const groq = getGroqClient();
+    if (groq) {
+      try {
+        const buffer = Buffer.from(cleanBase64, "base64");
+        const ext = mimeType.includes("mp4") || mimeType.includes("m4a")
+          ? "m4a"
+          : mimeType.includes("ogg")
+          ? "ogg"
+          : mimeType.includes("wav")
+          ? "wav"
+          : mimeType.includes("mp3")
+          ? "mp3"
+          : "webm";
+        const file = await Groq.toFile(buffer, `audio.${ext}`, { type: mimeType });
+        const transcription = await groq.audio.transcriptions.create({
+          file,
+          model: "whisper-large-v3",
+          response_format: "json",
+        });
+        const text = (transcription.text || "").trim();
+        return res.json({ text, transcription: text });
+      } catch (groqErr: any) {
+        console.warn("[AGNI Groq Whisper notice]:", groqErr?.message || groqErr);
+      }
     }
 
-    return res.json({ text: transcribed });
+    return res.json({ text: "" });
   } catch (error: any) {
-    console.warn("Notice in /api/transcribe-audio:", error?.message);
+    console.warn("Notice in /api/transcribe:", error?.message);
     return res.json({ text: "", notice: error?.message || "Transcribe completed" });
   }
 });

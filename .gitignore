@@ -5,6 +5,7 @@ desktop/dist
 desktop/node_modules
 desktop/__pycache__
 .vercel
+.env
 .env.local
 *.apk
 *.aab

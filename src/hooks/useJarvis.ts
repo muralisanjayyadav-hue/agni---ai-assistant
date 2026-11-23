@@ -1,11 +1,12 @@
 /**
  * AGNI Jarvis Mode - Real Voice & Speech Hook
- * Powered by GROQ llama-3.3-70b-versatile
+ * Powered by GROQ llama-3.3-70b-versatile & Groq Whisper Fallback
  * 100% Free For All • Full Sentence Speech • Real Action Execution
  * Built by Founder M. Sanjay
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { runSystemCommand } from '../lib/agniDesktop';
 
 export interface UseJarvisReturn {
   isListening: boolean;
@@ -35,6 +36,16 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
   const shouldListenRef = useRef<boolean>(true);
   const isSpeakingRef = useRef<boolean>(false);
   const isThinkingRef = useRef<boolean>(false);
+
+  // Audio capture & fallback references
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const whisperTimerRef = useRef<any>(null);
+  const speechDetectedRef = useRef<boolean>(false);
+  const isTranscribingRef = useRef<boolean>(false);
 
   // Stop current speech
   const stopSpeaking = useCallback(() => {
@@ -131,6 +142,18 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
 
       stopSpeaking();
       setYouSaid(cleanInput);
+
+      // Check for Desktop System Commands (brightness, volume, battery, lock, apps)
+      const sys = await runSystemCommand(cleanInput);
+      if (sys.handled && sys.reply) {
+        setJarvisReply(sys.reply);
+        setLastAction('system_command');
+        setIsThinking(false);
+        isThinkingRef.current = false;
+        speakAloud(sys.reply);
+        return;
+      }
+
       setIsThinking(true);
       isThinkingRef.current = true;
       setJarvisReply('Jarvis is processing...');
@@ -180,27 +203,193 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
     [onClose, onNavigate, speakAloud, stopSpeaking]
   );
 
-  // Start Recognition
-  const startListening = useCallback(() => {
-    shouldListenRef.current = true;
-    if (!recognitionRef.current) return;
+  // Acquire microphone stream & initialize AnalyserNode
+  const ensureMediaStream = useCallback(async (): Promise<MediaStream | null> => {
+    if (mediaStreamRef.current && mediaStreamRef.current.active) {
+      return mediaStreamRef.current;
+    }
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setMicPermission('denied');
+      return null;
+    }
+
     try {
-      recognitionRef.current.start();
-      setIsListening(true);
-    } catch (e) {
-      console.debug('[Jarvis Recognition start notice]', e);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      mediaStreamRef.current = stream;
+      setMicPermission('granted');
+
+      // Initialize Web Audio API AnalyserNode for volume / waveform
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        let ctx = audioContextRef.current;
+        if (!ctx || ctx.state === 'closed') {
+          ctx = new AudioCtx();
+          audioContextRef.current = ctx;
+        }
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+        if (!analyserRef.current) {
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 64;
+          analyser.smoothingTimeConstant = 0.8;
+          const source = ctx.createMediaStreamSource(stream);
+          source.connect(analyser);
+          analyserRef.current = analyser;
+        }
+      }
+
+      return stream;
+    } catch (err: any) {
+      console.warn('[Jarvis] getUserMedia error:', err);
+      setMicPermission('denied');
+      return null;
     }
   }, []);
+
+  // Transcribe recorded audio with Groq Whisper fallback
+  const transcribeAudioChunks = useCallback(
+    async (chunks: Blob[]) => {
+      if (isTranscribingRef.current || chunks.length === 0) return;
+      isTranscribingRef.current = true;
+
+      try {
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const audioBlob = new Blob(chunks, { type: mimeType });
+        if (audioBlob.size < 600) {
+          isTranscribingRef.current = false;
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          try {
+            const base64Audio = (reader.result as string) || '';
+            const res = await fetch('/api/transcribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioBase64: base64Audio, mimeType, language: 'en' }),
+            });
+            const data = await res.json();
+            const text = (data.text || data.transcription || '').trim();
+            if (text) {
+              setYouSaid(text);
+              submitCommand(text);
+            }
+          } catch (e) {
+            console.warn('[Jarvis Whisper Fallback error]', e);
+          } finally {
+            isTranscribingRef.current = false;
+          }
+        };
+      } catch (e) {
+        console.warn('[Jarvis transcribeAudioChunks error]', e);
+        isTranscribingRef.current = false;
+      }
+    },
+    [submitCommand]
+  );
+
+  // Start Recognition
+  const startListening = useCallback(async () => {
+    shouldListenRef.current = true;
+    speechDetectedRef.current = false;
+
+    // 1. Root cause fix: Acquire getUserMedia FIRST
+    const stream = await ensureMediaStream();
+    if (!stream) {
+      console.warn('[Jarvis] Could not acquire audio stream');
+      return;
+    }
+
+    setIsListening(true);
+
+    // 2. Start MediaRecorder for Whisper fallback (record live audio)
+    try {
+      audioChunksRef.current = [];
+      const supportedMime =
+        typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : undefined;
+
+      if (typeof MediaRecorder !== 'undefined') {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          try {
+            mediaRecorderRef.current.stop();
+          } catch {}
+        }
+        const recorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+        recorder.start(200);
+        mediaRecorderRef.current = recorder;
+      }
+    } catch (recErr) {
+      console.warn('[Jarvis MediaRecorder notice]', recErr);
+    }
+
+    // 3. Fallback Whisper timer (if SpeechRecognition fails or does not transcribe within 3.5 sec)
+    if (whisperTimerRef.current) clearTimeout(whisperTimerRef.current);
+    whisperTimerRef.current = setTimeout(() => {
+      if (shouldListenRef.current && !speechDetectedRef.current && audioChunksRef.current.length > 0) {
+        console.log('[Jarvis] SpeechRecognition silent or unavailable -> triggering Groq Whisper fallback');
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          try {
+            mediaRecorderRef.current.stop();
+          } catch {}
+        }
+        const chunks = [...audioChunksRef.current];
+        audioChunksRef.current = [];
+        transcribeAudioChunks(chunks);
+      }
+    }, 3800);
+
+    // 4. Start SpeechRecognition
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.debug('[Jarvis Recognition start notice]', e);
+      }
+    }
+  }, [ensureMediaStream, transcribeAudioChunks]);
 
   // Stop Recognition
   const stopListening = useCallback(() => {
     shouldListenRef.current = false;
-    if (!recognitionRef.current) return;
-    try {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } catch {}
-  }, []);
+    setIsListening(false);
+    if (whisperTimerRef.current) {
+      clearTimeout(whisperTimerRef.current);
+      whisperTimerRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+        if (!speechDetectedRef.current && audioChunksRef.current.length > 0) {
+          const chunks = [...audioChunksRef.current];
+          audioChunksRef.current = [];
+          transcribeAudioChunks(chunks);
+        }
+      } catch {}
+    }
+  }, [transcribeAudioChunks]);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
@@ -214,91 +403,127 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Root cause logging checks
+    console.log(
+      'SpeechRecognition available:',
+      'SpeechRecognition' in window || 'webkitSpeechRecognition' in window
+    );
+    if (typeof navigator !== 'undefined' && (navigator as any).permissions?.query) {
+      (navigator as any).permissions
+        .query({ name: 'microphone' })
+        .then((p: any) => console.log('Mic permission state:', p.state))
+        .catch(() => {});
+    }
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
-      console.warn('[Jarvis] Web Speech Recognition not supported in this browser environment');
-      setMicPermission('denied');
-      return;
-    }
+    let recognition: any = null;
+    if (SpeechRecognition) {
+      try {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-IN'; // Indian English & accents
+        recognition.maxAlternatives = 1;
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = 'en-IN'; // Understands Indian English, Hindi & Tamil accents
-    recognition.maxAlternatives = 1;
+        recognition.onstart = () => {
+          setIsListening(true);
+          setMicPermission('granted');
+        };
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setMicPermission('granted');
-    };
+        recognition.onaudiostart = () => {
+          setIsListening(true);
+        };
 
-    recognition.onaudiostart = () => {
-      setIsListening(true);
-    };
+        recognition.onspeechstart = () => {
+          setIsListening(true);
+        };
 
-    recognition.onspeechstart = () => {
-      // User is talking
-      setIsListening(true);
-    };
+        recognition.onspeechend = () => {
+          // Keep listening flag until final result or stop
+        };
 
-    recognition.onspeechend = () => {
-      // User stopped talking
-      setIsListening(false);
-    };
+        recognition.onresult = (event: any) => {
+          if (isSpeakingRef.current) return;
+          speechDetectedRef.current = true;
+          if (whisperTimerRef.current) {
+            clearTimeout(whisperTimerRef.current);
+            whisperTimerRef.current = null;
+          }
 
-    recognition.onresult = (event: any) => {
-      // Don't process input while Jarvis itself is speaking to prevent feedback loop
-      if (isSpeakingRef.current) return;
+          let finalTranscript = '';
+          let interimTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          const text = finalTranscript || interimTranscript;
+          console.log("Transcript:", text);
+          setYouSaid(text);
 
-      const lastResult = event.results[event.results.length - 1];
-      if (lastResult && lastResult.isFinal) {
-        const transcript = lastResult[0]?.transcript?.trim();
-        if (transcript) {
+          if (finalTranscript) {
+            setIsListening(false);
+            submitCommand(finalTranscript);
+          }
+        };
+
+        recognition.onerror = (event: any) => {
+          console.debug('[Jarvis Recognition Event]', event.error);
+          if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+            setMicPermission('denied');
+            setIsListening(false);
+            shouldListenRef.current = false;
+          }
+          // On 'network' error (e.g. in Electron where Google Speech isn't bundled):
+          // Immediately trigger Groq Whisper fallback with recorded audio
+          if (event.error === 'network' && audioChunksRef.current.length > 0) {
+            console.log('[Jarvis] WebSpeech network error -> immediate Groq Whisper fallback');
+            const chunks = [...audioChunksRef.current];
+            audioChunksRef.current = [];
+            transcribeAudioChunks(chunks);
+          }
+        };
+
+        recognition.onend = () => {
           setIsListening(false);
-          submitCommand(transcript);
-        }
-      }
-    };
+          // Do not clear input on onend
+        };
 
-    recognition.onerror = (event: any) => {
-      console.debug('[Jarvis Recognition Event]', event.error);
-      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-        setMicPermission('denied');
-        setIsListening(false);
-        shouldListenRef.current = false;
+        recognitionRef.current = recognition;
+      } catch (err) {
+        console.warn('[Jarvis] SpeechRecognition instantiation error:', err);
       }
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      // Auto-restart if we should keep listening and not currently speaking
-      if (shouldListenRef.current && !isSpeakingRef.current && !isThinkingRef.current) {
-        try {
-          recognition.start();
-        } catch {}
-      }
-    };
-
-    recognitionRef.current = recognition;
+    }
 
     // Initial greeting aloud
     speakAloud('Jarvis online, Sir. At your service.');
 
-    // Auto-start listening on mount
-    try {
-      recognition.start();
-    } catch {}
+    // Auto-prime media stream and listening on mount
+    ensureMediaStream().then(() => {
+      startListening();
+    });
 
     return () => {
       shouldListenRef.current = false;
-      try {
-        recognition.stop();
-      } catch {}
+      if (whisperTimerRef.current) clearTimeout(whisperTimerRef.current);
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch {}
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {}
+      }
       stopSpeaking();
     };
-  }, [speakAloud, stopSpeaking, submitCommand]);
+  }, [ensureMediaStream, speakAloud, startListening, stopSpeaking, submitCommand, transcribeAudioChunks]);
 
   return {
     isListening,

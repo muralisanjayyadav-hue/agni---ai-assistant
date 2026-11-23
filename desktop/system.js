@@ -95,7 +95,7 @@ async function getVolume() {
       console.warn('[Volume] loudness read error, attempting fallback:', e.message);
     }
   }
-  return cache.volume ?? 50;
+  throw new Error('Volume control unavailable: run npm install (loudness missing)');
 }
 
 async function setVolume(percent) {
@@ -111,21 +111,16 @@ async function setVolume(percent) {
       return p;
     } catch (e) {
       console.warn('[Volume] loudness write error:', e.message);
+      throw e;
     }
   }
-  cache.volume = p;
-  return p;
+  throw new Error('Volume control unavailable: run npm install (loudness missing)');
 }
 
 async function setMuted(flag) {
   const isMuted = !!flag;
-  if (loudness) {
-    try {
-      await loudness.setMuted(isMuted);
-    } catch (e) {
-      console.warn('[Volume] loudness mute error:', e.message);
-    }
-  }
+  if (!loudness) throw new Error('Volume control unavailable: run npm install (loudness missing)');
+  await loudness.setMuted(isMuted);
   cache.muted = isMuted;
   return isMuted;
 }

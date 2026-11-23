@@ -182,7 +182,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
       recognitionRef.current = recognition;
 
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = true;
 
       recognition.onstart = () => {
@@ -191,13 +191,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
       };
 
       recognition.onresult = (event: any) => {
-        let fullTranscript = '';
-        for (let i = 0; i < event.results.length; ++i) {
-          fullTranscript += event.results[i][0].transcript;
+        let finalTranscript = '';
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
         }
-        if (fullTranscript.trim()) {
-          setInputText(fullTranscript);
-        }
+        const text = finalTranscript || interimTranscript;
+        console.log("Transcript:", text);
+        // UPDATE BOTH STATES - THIS IS THE FIX:
+        if (setInputText) setInputText(text);
       };
 
       recognition.onerror = (event: any) => {

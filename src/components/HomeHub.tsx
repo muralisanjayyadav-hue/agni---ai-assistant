@@ -128,18 +128,31 @@ export const HomeHub: React.FC<HomeHubProps> = ({
     }
 
     try {
-      const recognition = createSpeechRecognition(currentLang.speechCode || 'en-IN');
+      const selectedLanguage = currentLang?.speechCode || 'en-IN';
+      const recognition = createSpeechRecognition(selectedLanguage);
       if (!recognition) return;
 
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = selectedLanguage;
       recognitionRef.current = recognition;
       setIsListening(true);
 
       recognition.onresult = (event: any) => {
-        let currentText = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          currentText += event.results[i][0].transcript;
+        let finalTranscript = '';
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
         }
-        setInputText((prev) => (prev ? `${prev} ${currentText}` : currentText));
+        const text = finalTranscript || interimTranscript;
+        console.log("Transcript:", text);
+        // UPDATE BOTH STATES - THIS IS THE FIX:
+        if (setInputText) setInputText(text);
       };
 
       recognition.onerror = (event: any) => {
@@ -149,6 +162,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
 
       recognition.onend = () => {
         setIsListening(false);
+        // Do not clear input on onend
       };
 
       recognition.start();
@@ -530,7 +544,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Ask or message AGNI anything... (Press Enter to chat)"
+              placeholder={`Type or tap orb to speak in ${currentLang?.label || 'English'}...`}
               className="flex-1 bg-transparent px-3 py-2 text-xs sm:text-sm text-white placeholder:text-neutral-500 outline-none"
             />
             <button

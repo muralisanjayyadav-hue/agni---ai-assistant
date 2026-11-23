@@ -862,6 +862,51 @@ app.post('/api/feedback', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Feedback received. Thank you!' });
 });
 
+// ── Audio Transcription Endpoint — PURE GROQ WHISPER (whisper-large-v3) ───────
+app.post(['/api/transcribe', '/api/transcribe-audio'], async (req: Request, res: Response) => {
+  try {
+    const groq = getGroq();
+    if (!groq) {
+      return res.status(200).json({ text: '', error: 'GROQ_API_KEY missing - configure on Vercel' });
+    }
+
+    const { audioBase64, mimeType = 'audio/webm', language } = req.body || {};
+    if (!audioBase64 || typeof audioBase64 !== 'string') {
+      return res.status(200).json({ text: '' });
+    }
+
+    const cleanBase64 = audioBase64.replace(/^data:audio\/[^;]+;base64,/, '').trim();
+    if (cleanBase64.length < 50) {
+      return res.status(200).json({ text: '' });
+    }
+
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    const ext = mimeType.includes('mp4') || mimeType.includes('m4a')
+      ? 'm4a'
+      : mimeType.includes('ogg')
+      ? 'ogg'
+      : mimeType.includes('wav')
+      ? 'wav'
+      : mimeType.includes('mp3')
+      ? 'mp3'
+      : 'webm';
+
+    const file = await Groq.toFile(buffer, `audio.${ext}`, { type: mimeType });
+    const transcription = await groq.audio.transcriptions.create({
+      file,
+      model: 'whisper-large-v3',
+      language: language && language !== 'auto' && language.length <= 3 ? language : undefined,
+      response_format: 'json',
+    });
+
+    const text = (transcription.text || '').trim();
+    return res.status(200).json({ text, transcription: text });
+  } catch (err: any) {
+    console.error('[Groq Whisper Error]', err?.message || err);
+    return res.status(200).json({ text: '', error: err?.message || 'Transcription failed' });
+  }
+});
+
 // ── Main Chat Endpoint — 100% PURE GROQ API ────────────────────────────────
 app.post(['/api/chat', '/chat', '/api/agni'], async (req: Request, res: Response) => {
   try {
