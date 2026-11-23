@@ -9,3 +9,6 @@ desktop/__pycache__
 .env.local
 *.apk
 *.aab
+
+.vercel
+.env*

@@ -7,9 +7,12 @@
   "author": "Sanjay",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "concurrently -k -s first -n web,app \"npm --prefix .. run dev\" \"wait-on -t 180000 http-get://localhost:3000 && electron .\"",
-    "start:prod": "electron .",
-    "dist": "electron-builder --win"
+    "start": "electron .",
+    "build": "electron-builder --win nsis portable --x64",
+    "make": "electron-builder --win --x64",
+    "dist": "electron-builder --win --x64 --config electron-builder.yml",
+    "build:win": "electron-builder --win nsis portable --x64",
+    "start:prod": "electron ."
   },
   "dependencies": {
     "loudness": "^0.4.2"
@@ -24,7 +27,7 @@
     "appId": "com.sanjay.agni",
     "productName": "AGNI",
     "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "system.js", "system-ipc.js", "config.js"],
+    "files": ["main.js", "preload.js", "system.js", "system-ipc.js", "config.js", "index.html", "orb.html"],
     "win": {
       "target": [
         { "target": "nsis", "arch": ["x64"] },

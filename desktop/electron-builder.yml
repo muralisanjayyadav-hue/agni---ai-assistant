@@ -1,0 +1,26 @@
+appId: com.sanjay.agni
+productName: AGNI
+directories:
+  output: dist
+files:
+  - "main.js"
+  - "preload.js"
+  - "system.js"
+  - "system-ipc.js"
+  - "config.js"
+  - "index.html"
+  - "orb.html"
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  artifactName: "AGNI Setup ${version}.${ext}"
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+portable:
+  artifactName: "AGNI ${version}.${ext}"
