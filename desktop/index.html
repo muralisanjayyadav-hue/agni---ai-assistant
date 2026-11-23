@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>AGNI</title>
+<style>
+  :root {
+    --bg: #020210;
+    --cy: #00D4FF;
+    --cy-dim: #4aa9c4;
+    --cy-glow: rgba(0, 212, 255, 0.45);
+    --line: rgba(0, 212, 255, 0.28);
+    --panel: rgba(0, 212, 255, 0.045);
+    --warn: #ff8a3d;
+    --ok: #37f2b5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--cy);
+    overflow: hidden;
+    user-select: none;
+    font-family: Bahnschrift, "Segoe UI", system-ui, sans-serif;
+  }
+  /* Grid & scanlines background */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 42%, rgba(0, 212, 255, 0.12), transparent 60%),
+      linear-gradient(rgba(0, 212, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+      linear-gradient(90deg, rgba(0, 212, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+    background-size: 100% 4px;
+    opacity: 0.35;
+  }
+
+  #app {
+    position: relative;
+    height: 100%;
+    display: grid;
+    grid-template-rows: 42px 1fr 168px;
+  }
+
+  /* Title bar */
+  #bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 14px 0 18px;
+    -webkit-app-region: drag;
+    border-bottom: 1px solid var(--line);
+    background: rgba(2, 2, 16, 0.85);
+    backdrop-filter: blur(8px);
+  }
+  #bar h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.38em;
+    text-shadow: 0 0 10px var(--cy);
+  }
+  #bar .sub {
+    font-size: 11.5px;
+    color: var(--cy-dim);
+    letter-spacing: 0.14em;
+  }
+  #bar .sp { flex: 1; }
+  #clock {
+    font: 13px Consolas, monospace;
+    color: var(--cy-dim);
+    letter-spacing: 0.08em;
+  }
+  .btn {
+    -webkit-app-region: no-drag;
+    background: transparent;
+    color: var(--cy);
+    border: 1px solid var(--line);
+    padding: 4px 12px;
+    font: 12px Bahnschrift, sans-serif;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:hover {
+    background: rgba(0, 212, 255, 0.15);
+    box-shadow: 0 0 12px var(--cy-glow);
+    border-color: var(--cy);
+  }
+  .btn:focus-visible, input:focus-visible, .sw:focus-visible {
+    outline: 2px solid var(--cy);
+    outline-offset: 2px;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: 290px 1fr 370px;
+    gap: 14px;
+    padding: 14px 14px 0;
+    min-height: 0;
+  }
+  .panel {
+    position: relative;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 14px 16px;
+    min-height: 0;
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    backdrop-filter: blur(4px);
+  }
+  .panel h2 {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: var(--cy-dim);
+    margin-bottom: 12px;
+  }
+
+  /* Left: System Telemetry Meters */
+  #left { display: flex; flex-direction: column; gap: 12px; }
+  .stat { margin-bottom: 12px; }
+  .stat .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+    color: var(--cy-dim);
+    letter-spacing: 0.14em;
+  }
+  .stat b {
+    font: 600 24px Bahnschrift, sans-serif;
+    color: var(--cy);
+    text-shadow: 0 0 12px rgba(0, 212, 255, 0.75);
+    letter-spacing: 0;
+  }
+  .stat small { font-size: 11px; color: var(--cy-dim); margin-left: 2px; }
+  .meter {
+    height: 5px;
+    background: rgba(0, 212, 255, 0.12);
+    margin-top: 5px;
+    overflow: hidden;
+  }
+  .meter i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #005a73, var(--cy));
+    box-shadow: 0 0 10px var(--cy);
+    transition: width 0.6s cubic-bezier(0.1, 0.9, 0.2, 1);
+  }
+  .toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    padding: 7px 0;
+    border-top: 1px solid var(--line);
+  }
+  .sw {
+    position: relative;
+    width: 44px;
+    height: 22px;
+    border: 1px solid var(--cy);
+    background: transparent;
+    cursor: pointer;
+  }
+  .sw::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    background: var(--cy-dim);
+    transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sw[aria-checked="true"] {
+    background: rgba(0, 212, 255, 0.22);
+    box-shadow: 0 0 12px var(--cy-glow);
+  }
+  .sw[aria-checked="true"]::after {
+    left: 25px;
+    background: var(--cy);
+    box-shadow: 0 0 8px var(--cy);
+  }
+  #engine {
+    font-size: 11.5px;
+    color: var(--cy-dim);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  /* Center: Reactor Core Canvas */
+  #center { position: relative; min-width: 0; }
+  #core { width: 100%; height: 100%; display: block; }
+  #heard {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 8px;
+    text-align: center;
+    min-height: 26px;
+    padding: 0 20px;
+    font: 14.5px Consolas, monospace;
+    color: #bff3ff;
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.65);
+  }
+
+  /* Right: Console Log */
+  #right { display: flex; flex-direction: column; }
+  #console {
+    flex: 1;
+    overflow-y: auto;
+    font: 12.5px/1.55 Consolas, monospace;
+    padding-right: 4px;
+    min-height: 0;
+  }
+  #console::-webkit-scrollbar { width: 5px; }
+  #console::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+  .ln {
+    display: grid;
+    grid-template-columns: 62px 48px 1fr;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+  .ln .ts { color: #3b7a8c; font-size: 11.5px; }
+  .ln .who { color: var(--cy-dim); font-weight: 600; font-size: 11.5px; }
+  .ln.you .who { color: #fff; }
+  .ln.you .tx { color: #fff; }
+  .ln.agni .tx { color: var(--cy); text-shadow: 0 0 6px rgba(0, 212, 255, 0.5); }
+  .ln.sys .tx { color: #6fa3b3; }
+  .ln.err .who, .ln.err .tx { color: var(--warn); }
+  #cmdform { display: flex; gap: 8px; margin-top: 10px; }
+  #cmd {
+    flex: 1;
+    background: rgba(0, 212, 255, 0.06);
+    border: 1px solid var(--line);
+    color: #dff9ff;
+    padding: 8px 10px;
+    font: 13px Consolas, monospace;
+    user-select: text;
+  }
+  #cmd::placeholder { color: #3b7a8c; }
+
+  /* Bottom: Keyboard Glow */
+  #kb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding-bottom: 8px;
+  }
+  .kr { display: flex; gap: 6px; }
+  .k {
+    width: 38px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    font: 600 11.5px Bahnschrift, sans-serif;
+    color: #2f7488;
+    border: 1px solid rgba(0, 212, 255, 0.22);
+    background: rgba(0, 212, 255, 0.03);
+    transition: all 0.45s ease-out;
+  }
+  .k.on {
+    color: #fff;
+    border-color: var(--cy);
+    background: rgba(0, 212, 255, 0.35);
+    box-shadow: 0 0 16px var(--cy), inset 0 0 8px rgba(0, 212, 255, 0.6);
+    transition: none;
+  }
+  .k.space { width: 280px; }
+  @media (prefers-reduced-motion: reduce) { .meter i, .k { transition: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="bar">
+    <h1>AGNI</h1><span class="sub">PERSONAL AI ASSISTANT</span>
+    <span class="sp"></span>
+    <span id="clock">--:--:--</span>
+    <button class="btn" id="btnOrb" title="Hide to floating orb (Ctrl+Alt+A)">Minimize to orb</button>
+  </header>
+
+  <main>
+    <aside id="left" class="panel">
+      <h2>SYSTEM</h2>
+      <div class="stat"><div class="row">CPU<span><b id="vCpu">--</b><small>%</small></span></div><div class="meter"><i id="mCpu"></i></div></div>
+      <div class="stat"><div class="row">RAM<span><b id="vRam">--</b><small>%</small></span></div><div class="meter"><i id="mRam"></i></div></div>
+      <div class="stat"><div class="row">BRIGHTNESS<span><b id="vBri">--</b><small>%</small></span></div><div class="meter"><i id="mBri"></i></div></div>
+      <div class="stat"><div class="row">VOLUME<span><b id="vVol">--</b><small>%</small></span></div><div class="meter"><i id="mVol"></i></div></div>
+      <div class="stat"><div class="row">BATTERY<span><b id="vBat">--</b><small>%</small></span></div><div class="meter"><i id="mBat"></i></div></div>
+      <div class="toggle"><span>Always listening</span><button class="sw" id="swAlways" role="switch" aria-checked="true" aria-label="Always listening"></button></div>
+      <div class="toggle"><span>Wake word "Agni"</span><button class="sw" id="swWake" role="switch" aria-checked="true" aria-label="Require wake word"></button></div>
+      <div id="engine">Voice engine: starting</div>
+    </aside>
+
+    <section id="center">
+      <canvas id="core"></canvas>
+      <div id="heard"></div>
+    </section>
+
+    <aside id="right" class="panel">
+      <h2>COMMAND LOG</h2>
+      <div id="console" aria-live="polite"></div>
+      <form id="cmdform" autocomplete="off">
+        <input id="cmd" placeholder="Type a command, press Enter" aria-label="Type a command">
+        <button class="btn" type="submit">Send</button>
+      </form>
+    </aside>
+  </main>
+
+  <footer id="kb"></footer>
+</div>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  let S = { alwaysListening: true, wakeRequired: true, session: false, speaking: false, brain: 'starting' };
+  let target = 0, lvl = 0, partial = '';
+
+  /* ---------- state / labels ---------- */
+  function modeLabel() {
+    if (!S.alwaysListening) return 'MIC OFF';
+    if (S.brain !== 'ready') return S.brain === 'error' ? 'ENGINE ERROR' : 'STARTING';
+    if (S.speaking) return 'SPEAKING';
+    if (S.session || !S.wakeRequired) return 'LISTENING';
+    return 'STANDBY';
+  }
+  function applyState(s) {
+    S = Object.assign(S, s);
+    $('#swAlways').setAttribute('aria-checked', S.alwaysListening);
+    $('#swWake').setAttribute('aria-checked', S.wakeRequired);
+    const names = { ready: 'online, mic open', starting: 'starting...', restarting: 'restarting...', error: 'needs attention (see log)' };
+    $('#engine').textContent = 'Voice engine: ' + (S.alwaysListening || S.brain !== 'ready' ? names[S.brain] || S.brain : 'online, mic closed');
+  }
+
+  /* ---------- stats ---------- */
+  function setStat(id, v) {
+    const ok = typeof v === 'number';
+    $('#v' + id).textContent = ok ? Math.round(v) : '--';
+    $('#m' + id).style.width = (ok ? Math.max(0, Math.min(100, v)) : 0) + '%';
+  }
+  agni.on('stats', (s) => {
+    setStat('Cpu', s.cpu);
+    setStat('Ram', s.ram);
+    setStat('Bri', s.brightness);
+    setStat('Vol', s.volume);
+    if (typeof s.battery === 'number') setStat('Bat', s.battery);
+  });
+  if (navigator.getBattery) {
+    navigator.getBattery().then((b) => {
+      const up = () => { if ($('#vBat').textContent === '--') setStat('Bat', b.level * 100); };
+      up(); b.addEventListener('levelchange', up);
+    }).catch(() => {});
+  }
+  setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('en-GB'); }, 1000);
+
+  /* ---------- log ---------- */
+  function addLog(e) {
+    const row = document.createElement('div');
+    row.className = 'ln ' + e.kind;
+    const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = new Date(e.t).toLocaleTimeString('en-GB');
+    const who = document.createElement('span'); who.className = 'who'; who.textContent = { you: 'YOU', agni: 'AGNI', sys: 'SYS', err: 'ERR' }[e.kind] || '';
+    const tx = document.createElement('span'); tx.className = 'tx'; tx.textContent = e.text;
+    row.append(ts, who, tx);
+    const c = $('#console'); c.appendChild(row); c.scrollTop = c.scrollHeight;
+  }
+  agni.on('log', addLog);
+  agni.on('state', applyState);
+
+  /* ---------- keyboard glow ---------- */
+  const ROWS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+  const keyEls = {};
+  (function buildKb() {
+    const kb = $('#kb');
+    ROWS.forEach((r) => {
+      const row = document.createElement('div'); row.className = 'kr';
+      [...r].forEach((ch) => {
+        const k = document.createElement('div'); k.className = 'k'; k.textContent = ch; keyEls[ch] = k; row.appendChild(k);
+      });
+      kb.appendChild(row);
+    });
+    const sp = document.createElement('div'); sp.className = 'kr';
+    const k = document.createElement('div'); k.className = 'k space'; keyEls[' '] = k; sp.appendChild(k); kb.appendChild(sp);
+  })();
+
+  function glow(ch) {
+    const el = keyEls[ch.toUpperCase()]; if (!el) return;
+    el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 90);
+  }
+
+  agni.on('partial', (t) => {
+    const add = t.startsWith(partial) ? t.slice(partial.length) : t;
+    [...add].forEach((ch, i) => setTimeout(() => glow(ch), i * 28));
+    partial = t;
+    $('#heard').textContent = t ? '> ' + t : '';
+  });
+
+  let sweep = 0;
+  setInterval(() => {
+    if (!S.speaking) return;
+    const all = Object.keys(keyEls);
+    glow(all[sweep++ % all.length]);
+    glow(all[(sweep * 7) % all.length]);
+  }, 70);
+
+  /* ---------- voice (speechSynthesis) ---------- */
+  let voice = null;
+  function pickVoice() {
+    const vs = speechSynthesis.getVoices();
+    const prefs = [/ravi/i, /prabhat/i, /hemant/i, /en-in/i, /david/i, /mark/i, /daniel/i, /male/i];
+    for (const p of prefs) {
+      const v = vs.find((x) => p.test(x.name) || p.test(x.lang));
+      if (v) { voice = v; return; }
+    }
+    voice = vs[0] || null;
+  }
+  speechSynthesis.onvoiceschanged = pickVoice;
+  pickVoice();
+
+  agni.on('speak', (text) => {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'en-IN';
+    u.pitch = 0.72;
+    u.rate = 0.98;
+    u.volume = 1;
+    let done = false;
+    const end = () => { if (done) return; done = true; agni.ttsState(false); };
+    u.onstart = () => agni.ttsState(true);
+    u.onend = end;
+    u.onerror = end;
+    setTimeout(end, Math.max(6000, text.length * 120)); // safety: never stay permanently muted
+    speechSynthesis.speak(u);
+  });
+
+  /* ---------- controls ---------- */
+  $('#swAlways').onclick = () => agni.setAlways(S.alwaysListening ? false : true);
+  $('#swWake').onclick = () => agni.setWake(S.wakeRequired ? false : true);
+  $('#btnOrb').onclick = () => agni.toOrb();
+  $('#cmdform').onsubmit = (e) => {
+    e.preventDefault();
+    const v = $('#cmd').value.trim();
+    if (v) agni.command(v);
+    $('#cmd').value = '';
+  };
+
+  /* ---------- core canvas (96-bar waveform + reactor) ---------- */
+  const cv = $('#core'), g = cv.getContext('2d');
+  function fit() {
+    const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+    cv.width = r.width * d; cv.height = r.height * d;
+    g.setTransform(d, 0, 0, d, 0, 0);
+  }
+  addEventListener('resize', fit);
+  fit();
+
+  agni.on('level', (v) => { target = Math.max(target, Math.min(1, v * 1.6)); });
+
+  function ring(cx, cy, r, n, len, rot, w, a) {
+    g.lineWidth = w;
+    g.strokeStyle = 'rgba(0,212,255,' + a + ')';
+    for (let i = 0; i < n; i++) {
+      const an = rot + (i / n) * Math.PI * 2, l = i % 5 === 0 ? len * 1.9 : len;
+      g.beginPath();
+      g.moveTo(cx + Math.cos(an) * r, cy + Math.sin(an) * r);
+      g.lineTo(cx + Math.cos(an) * (r + l), cy + Math.sin(an) * (r + l));
+      g.stroke();
+    }
+  }
+
+  function arcs(cx, cy, r, rot, w, a) {
+    g.lineWidth = w;
+    g.strokeStyle = 'rgba(0,212,255,' + a + ')';
+    for (let i = 0; i < 3; i++) {
+      const s = rot + i * 2.094;
+      g.beginPath();
+      g.arc(cx, cy, r, s, s + 1.2);
+      g.stroke();
+    }
+  }
+
+  function frame(ts) {
+    const t = ts / 1000, w = cv.clientWidth, h = cv.clientHeight;
+    const cx = w / 2, cy = h / 2 - 8, R = Math.min(w, h * 0.92) * 0.20;
+    const off = !S.alwaysListening, awake = S.session || !S.wakeRequired;
+
+    if (S.speaking) target = Math.max(target, 0.35 + 0.25 * Math.sin(t * 9) + 0.15 * Math.sin(t * 23));
+    lvl += (target - lvl) * 0.3;
+    target *= 0.9;
+
+    const pulse = 0.5 + 0.5 * Math.sin(t * (S.speaking ? 6 : awake ? 3 : 1.4));
+    const dim = off ? 0.25 : 1;
+    g.clearRect(0, 0, w, h);
+    g.globalAlpha = dim;
+
+    // Outer ambient glow
+    const gl = g.createRadialGradient(cx, cy, R * 0.3, cx, cy, R * 2.3);
+    gl.addColorStop(0, 'rgba(0,212,255,' + (0.20 + 0.14 * pulse + lvl * 0.2) + ')');
+    gl.addColorStop(1, 'rgba(0,212,255,0)');
+    g.fillStyle = gl;
+    g.fillRect(0, 0, w, h);
+
+    // Tech orbital rings
+    ring(cx, cy, R * 1.62, 120, 6, t * 0.06, 1, 0.45);
+    arcs(cx, cy, R * 1.46, -t * 0.5, 3, 0.8);
+    arcs(cx, cy, R * 1.34, t * 0.8, 1.5, 0.5);
+    g.lineWidth = 1;
+    g.strokeStyle = 'rgba(0,212,255,0.3)';
+    g.beginPath();
+    g.arc(cx, cy, R * 1.24, 0, 7);
+    g.stroke();
+
+    // 96-bar radial audio waveform
+    const bars = 96;
+    g.lineWidth = 2.4;
+    g.lineCap = 'round';
+    for (let i = 0; i < bars; i++) {
+      const an = (i / bars) * Math.PI * 2 - Math.PI / 2;
+      const amp = 4 + lvl * R * 0.55 * (0.35 + 0.65 * Math.abs(Math.sin(i * 1.7 + t * 7) * Math.cos(i * 0.6 - t * 3)));
+      g.strokeStyle = 'rgba(0,212,255,' + (0.45 + lvl * 0.55) + ')';
+      g.beginPath();
+      g.moveTo(cx + Math.cos(an) * R * 1.08, cy + Math.sin(an) * R * 1.08);
+      g.lineTo(cx + Math.cos(an) * (R * 1.08 + amp), cy + Math.sin(an) * (R * 1.08 + amp));
+      g.stroke();
+    }
+    g.lineCap = 'butt';
+
+    // Core reactor sphere
+    const cr = R * (0.96 + 0.035 * pulse + lvl * 0.05);
+    const cg = g.createRadialGradient(cx - cr * 0.25, cy - cr * 0.3, cr * 0.1, cx, cy, cr);
+    cg.addColorStop(0, 'rgba(160,242,255,0.95)');
+    cg.addColorStop(0.35, 'rgba(0,212,255,0.55)');
+    cg.addColorStop(1, 'rgba(2,2,16,0.9)');
+    g.fillStyle = cg;
+    g.shadowColor = '#00D4FF';
+    g.shadowBlur = 30 + 30 * pulse;
+    g.beginPath();
+    g.arc(cx, cy, cr, 0, 7);
+    g.fill();
+    g.shadowBlur = 0;
+
+    g.lineWidth = 2;
+    g.strokeStyle = 'rgba(0,212,255,0.95)';
+    g.stroke();
+    g.lineWidth = 1;
+    g.strokeStyle = 'rgba(180,245,255,0.6)';
+    g.beginPath();
+    g.arc(cx, cy, cr * (0.72 + 0.04 * pulse), 0, 7);
+    g.stroke();
+
+    // Central HUD labels
+    g.globalAlpha = 1;
+    g.textAlign = 'center';
+    g.fillStyle = '#eaffff';
+    g.shadowColor = '#00D4FF';
+    g.shadowBlur = 14;
+    g.font = '700 ' + Math.round(R * 0.30) + 'px Bahnschrift, Segoe UI, sans-serif';
+    g.fillText('AGNI', cx, cy + R * 0.06);
+    g.shadowBlur = 0;
+    g.fillStyle = off ? '#7f8fa0' : '#9be9ff';
+    g.font = '12px Bahnschrift, Segoe UI, sans-serif';
+    g.fillText(modeLabel(), cx, cy + R * 0.34);
+
+    if (!off && !awake && S.brain === 'ready') {
+      g.fillStyle = '#4aa9c4';
+      g.fillText('say "Agni" to wake me', cx, cy + R * 1.95);
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  /* ---------- boot ---------- */
+  agni.init().then((init) => {
+    applyState(init.state);
+    init.logs.forEach(addLog);
+  });
+</script>
+</body>
+</html>
