@@ -110,12 +110,9 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
     ];
 
     const GROQ_MODELS = [
-      "llama-3.1-8b-instant",                          // ALWAYS works, free tier
-      "llama-3.1-70b-versatile",                       // Still active
-      "meta-llama/llama-4-maverick-17b-128e-instruct", // New Llama 4 - Groq recommended 2026
-      "meta-llama/llama-4-scout-17b-16e-instruct",     // New Llama 4 Scout
-      "llama-3.3-70b-versatile",                       // Try again, might work now
-      "qwen/qwen3-32b",                                // Qwen 3 - Groq 2026
+      "llama-3.1-8b-instant",
+      "llama-3.3-70b-versatile",
+      "llama-3.1-70b-versatile"
     ];
 
     let lastError: any = null;
@@ -136,14 +133,15 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
           break; // Success, exit loop
         }
       } catch (e: any) {
-        console.error(`[AGNI] Model ${model} failed:`, e?.message, e?.status);
+        console.warn(`[AGNI] Model ${model} failed, continuing:`, e?.message, e?.status);
         lastError = e;
         const msg = (e?.message || "").toLowerCase();
         if (
-          msg.includes("decommissioned") ||
-          msg.includes("does not exist") ||
-          e?.code === "model_not_found" ||
           e?.status === 404 ||
+          e?.code === "model_not_found" ||
+          msg.includes("does not exist") ||
+          msg.includes("model_not_found") ||
+          msg.includes("decommissioned") ||
           e?.status === 400
         ) {
           continue; // Try next model
@@ -151,6 +149,7 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
         if (e?.status === 401) {
           throw e; // Invalid key, don't retry models
         }
+        continue;
       }
     }
 
