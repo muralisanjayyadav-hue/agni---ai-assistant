@@ -4,7 +4,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import Groq from "groq-sdk";
-import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, getGroqKeys } from "./src/lib/groqRotation";
+import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, getGroqKeys, auditGroqKeys } from "./src/lib/groqRotation";
 
 dotenv.config();
 if (!hasAnyGroqKey()) {
@@ -20,12 +20,13 @@ if (!hasAnyGroqKey()) {
 const app = express();
 const PORT = 3000;
 
-// ── Startup env check ──────────────────────────────────────────────────────
+// ── Startup env check & Master Audit ───────────────────────────────────────
+const groqAudit = auditGroqKeys();
 const activeGroqKeys = getGroqKeys();
 if (!hasAnyGroqKey()) {
-  console.warn("⚠️  GROQ_API_KEY missing - AGNI will show a friendly setup message instead of crashing.");
+  console.warn("[AGNI BUG FINDER] GROQ_API_KEY missing - AGNI will show friendly setup message.");
 } else {
-  console.log(`🔥 [AGNI Server] ${activeGroqKeys.length} Groq API Key(s) loaded. Circle rotation active (1->2->3...->9->1).`);
+  console.log(`🔥 [AGNI Server] ${activeGroqKeys.length}/9 Groq API Key(s) active in Circle Rotation (1->2->3...->9->1).`);
 }
 // ──────────────────────────────────────────────────────────────────────────
 

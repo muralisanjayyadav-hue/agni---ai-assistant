@@ -10,6 +10,45 @@ import Groq from 'groq-sdk';
 export let currentIndex = 0;
 
 /**
+ * Audit all 9 Groq keys in environment, checking for presence and valid 'gsk_' format.
+ */
+export function auditGroqKeys(): {
+  totalConfigured: number;
+  keys: Array<{ slot: number; exists: boolean; validFormat: boolean; prefix: string }>;
+} {
+  if (typeof process === 'undefined' || !process.env) {
+    return { totalConfigured: 0, keys: [] };
+  }
+
+  const results: Array<{ slot: number; exists: boolean; validFormat: boolean; prefix: string }> = [];
+  let count = 0;
+
+  for (let i = 1; i <= 9; i++) {
+    const raw = process.env[`GROQ_API_KEY_${i}`]?.trim();
+    const exists = Boolean(raw && raw !== '' && !raw.startsWith('YOUR_'));
+    const validFormat = Boolean(exists && raw!.startsWith('gsk_'));
+
+    if (exists) count++;
+    else {
+      console.warn(`[AGNI BUG FINDER] Groq Key ${i} missing from environment variables`);
+    }
+
+    if (exists && !validFormat) {
+      console.warn(`[AGNI BUG FINDER] Groq Key ${i} invalid format (expected prefix 'gsk_')`);
+    }
+
+    results.push({
+      slot: i,
+      exists,
+      validFormat,
+      prefix: exists ? `${raw!.slice(0, 7)}...` : 'not_set',
+    });
+  }
+
+  return { totalConfigured: count, keys: results };
+}
+
+/**
  * Retrieves all valid Groq API keys from process.env (GROQ_API_KEY_1 to 9, plus GROQ_API_KEY)
  */
 export function getGroqKeys(): string[] {
@@ -38,15 +77,20 @@ export function getGroqKeys(): string[] {
 export function getNextKeyInCircle(): string {
   const keys = getGroqKeys();
   if (keys.length === 0) return '';
+  const currentSlot = (currentIndex % keys.length) + 1;
   const key = keys[currentIndex % keys.length];
+  console.log(`[AGNI Groq] Using Groq Key ${currentSlot}/${keys.length}`);
   currentIndex = (currentIndex + 1) % keys.length;
   return key;
 }
 
 /**
- * Manually advance index (e.g. when 429 is encountered)
+ * Manually advance index (e.g. when 429 is encountered) and log switch
  */
-export function skipToNextKey(): string {
+export function skipToNextKey(fromSlot?: number): string {
+  const keys = getGroqKeys();
+  const nextSlot = (currentIndex % Math.max(keys.length, 1)) + 1;
+  console.warn(`[AGNI BUG FINDER] Key ${fromSlot || 'current'} hit limit, switched to Key ${nextSlot} (429 auto-switch)`);
   return getNextKeyInCircle();
 }
 
@@ -83,6 +127,7 @@ export async function executeWithGroqRotation<T>(
   let lastError: any = null;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
+    const currentSlot = (currentIndex % Math.max(keys.length, 1)) + 1;
     const apiKey = getNextKeyInCircle();
     if (!apiKey) {
       throw new Error('GROQ_API_KEY missing - configure GROQ_API_KEY_1 to GROQ_API_KEY_9 on Vercel');
@@ -99,7 +144,12 @@ export async function executeWithGroqRotation<T>(
         String(err?.message || '').toLowerCase().includes('quota') ||
         String(err?.message || '').toLowerCase().includes('too many requests');
 
-      console.warn(`[AGNI Groq Rotation] Key attempt ${attempt + 1}/${attempts} notice: ${err?.message || err}. Advancing circle.`);
+      const nextSlot = (currentIndex % Math.max(keys.length, 1)) + 1;
+      if (isRateLimit) {
+        console.warn(`[AGNI BUG FINDER] Key ${currentSlot} hit limit, switched to Key ${nextSlot}`);
+      } else {
+        console.warn(`[AGNI Groq Rotation] Key attempt ${attempt + 1}/${attempts} notice: ${err?.message || err}. Advancing circle.`);
+      }
 
       if (!isRateLimit && attempt >= 2) {
         // Non-rate-limit error — do not spin through all keys unnecessarily
