@@ -109,39 +109,55 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
       ...formattedMessages,
     ];
 
-    // Priority model: llama-3.1-8b-instant (Always exists, fastest, free tier) with resilient fallbacks
-    const modelsToTry = [
-      "llama-3.1-8b-instant",
-      "llama-3.1-70b-versatile",
-      "llama3-8b-8192",
-      "gemma2-9b-it",
+    const GROQ_MODELS = [
+      "llama-3.1-8b-instant",                          // ALWAYS works, free tier
+      "llama-3.1-70b-versatile",                       // Still active
+      "meta-llama/llama-4-maverick-17b-128e-instruct", // New Llama 4 - Groq recommended 2026
+      "meta-llama/llama-4-scout-17b-16e-instruct",     // New Llama 4 Scout
+      "llama-3.3-70b-versatile",                       // Try again, might work now
+      "qwen/qwen3-32b",                                // Qwen 3 - Groq 2026
     ];
 
-    let reply = "";
     let lastError: any = null;
+    let reply: string | null = null;
 
-    for (const model of modelsToTry) {
+    for (const model of GROQ_MODELS) {
       try {
-        console.log("[AGNI Chat] Calling Groq with model:", model);
+        console.log(`[AGNI] Trying model: ${model}`);
         const completion = await groq.chat.completions.create({
-          model,
+          model: model,
           messages: fullMessages,
           temperature: 0.7,
           max_tokens: 1024,
         });
-        reply = completion.choices[0]?.message?.content || "";
-        if (reply) break;
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[AGNI Chat] Model ${model} notice: ${err?.message}. Trying fallback...`);
+        reply = completion.choices[0]?.message?.content || null;
+        if (reply) {
+          console.log(`[AGNI] SUCCESS with model: ${model}`);
+          break; // Success, exit loop
+        }
+      } catch (e: any) {
+        console.error(`[AGNI] Model ${model} failed:`, e?.message, e?.status);
+        lastError = e;
+        const msg = (e?.message || "").toLowerCase();
+        if (
+          msg.includes("decommissioned") ||
+          msg.includes("does not exist") ||
+          e?.code === "model_not_found" ||
+          e?.status === 404 ||
+          e?.status === 400
+        ) {
+          continue; // Try next model
+        }
+        if (e?.status === 401) {
+          throw e; // Invalid key, don't retry models
+        }
       }
     }
 
-    if (!reply && lastError) {
-      throw lastError;
+    if (!reply) {
+      throw lastError || new Error("All Groq models failed - Check https://console.groq.com/docs/models");
     }
 
-    reply = reply || "Hii! How can I help you today?";
     console.log("[AGNI Chat] Groq success, reply length:", reply.length);
     return res.json({ reply: reply, text: reply });
   } catch (error: any) {

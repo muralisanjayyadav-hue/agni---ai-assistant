@@ -122,9 +122,9 @@ async function generateWithGroq(
   const groqModels = [
     "llama-3.1-8b-instant",
     "llama-3.1-70b-versatile",
-    "llama3-8b-8192",
-    "gemma2-9b-it",
-    "openai/gpt-oss-120b",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.3-70b-versatile",
     "qwen/qwen3-32b",
     "qwen/qwen3.8-27b",
   ];

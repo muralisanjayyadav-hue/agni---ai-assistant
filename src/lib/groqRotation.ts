@@ -20,13 +20,13 @@ export function getGroqKeys(): string[] {
     if (typeof process !== 'undefined' && process.env) {
       // Check 1..9
       for (let i = 1; i <= 9; i++) {
-        const k = process.env[`GROQ_API_KEY_${i}`] || process.env[`VITE_GROQ_API_KEY_${i}`];
+        const k = process.env[`GROQ_API_KEY_${i}`];
         if (k && k.trim().startsWith('gsk_')) {
           keys.push(k.trim().replace(/"/g, '').trim());
         }
       }
-      // Check single key - THIS IS USER'S CURRENT SETUP!
-      const single = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
+      // Check single key - ONLY GROQ_API_KEY
+      const single = process.env.GROQ_API_KEY;
       if (single && single.trim().startsWith('gsk_')) {
         const clean = single.trim().replace(/"/g, '').trim();
         if (!keys.includes(clean)) keys.push(clean);
