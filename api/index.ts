@@ -112,7 +112,10 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
     const GROQ_MODELS = [
       "llama-3.1-8b-instant",
       "llama-3.3-70b-versatile",
-      "llama-3.1-70b-versatile"
+      "meta-llama/llama-4-maverick-17b-128e-instruct",
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b",
     ];
 
     let lastError: any = null;
@@ -133,22 +136,25 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
           break; // Success, exit loop
         }
       } catch (e: any) {
-        console.warn(`[AGNI] Model ${model} failed, continuing:`, e?.message, e?.status);
         lastError = e;
         const msg = (e?.message || "").toLowerCase();
+        const code = e?.code || "";
+        // If model dead, decommissioned, or does not exist -> TRY NEXT, DO NOT THROW TO USER!
         if (
           e?.status === 404 ||
-          e?.code === "model_not_found" ||
-          msg.includes("does not exist") ||
-          msg.includes("model_not_found") ||
+          e?.status === 400 ||
           msg.includes("decommissioned") ||
-          e?.status === 400
+          msg.includes("does not exist") ||
+          code === "model_not_found" ||
+          code === "model_decommissioned"
         ) {
-          continue; // Try next model
+          console.warn(`[AGNI] Model ${model} dead (${code || e?.status}), trying next...`);
+          continue;
         }
         if (e?.status === 401) {
           throw e; // Invalid key, don't retry models
         }
+        console.warn(`[AGNI] Model ${model} notice: ${e?.message}, trying next...`);
         continue;
       }
     }
