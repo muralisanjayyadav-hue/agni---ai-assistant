@@ -477,10 +477,13 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
     if (SpeechRecognition) {
       try {
         recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = true;
-        recognition.lang = 'en-IN'; // Indian English & accents
+
+        // ─── CRITICAL settings for LIVE typing ───────────────────────────
+        recognition.continuous = true;        // keep running so interim fires
+        recognition.interimResults = true;    // MUST be true for live typing
+        recognition.lang = 'en-IN';
         recognition.maxAlternatives = 1;
+        // ─────────────────────────────────────────────────────────────────
 
         recognition.onstart = () => {
           setIsListening(true);
@@ -503,36 +506,48 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
           if (isSpeakingRef.current) return;
           speechDetectedRef.current = true;
 
-          let finalTranscript = '';
           let interimTranscript = '';
+          let finalTranscript = '';
           for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
+            const chunk = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript += transcript;
+              finalTranscript += chunk + ' ';
             } else {
-              interimTranscript += transcript;
+              interimTranscript += chunk + ' ';
             }
           }
-          const text = finalTranscript || interimTranscript;
-          console.log("Transcript:", text);
-          setYouSaid(text);
 
+          // Live text: combine finals so far + current interim
+          const liveText = (finalTranscript + interimTranscript).trim();
+          console.log('[Jarvis STT] LIVE:', liveText);
+          setYouSaid(liveText);
+
+          // ── CRITICAL: Direct DOM push so bottom box types LIVE ──────────
           try {
-            const targetInputs = document.querySelectorAll<HTMLInputElement>(
-              '#jarvis-type-input, #home-message-input, #mini-voice-box-text-input, input[placeholder*="speak"], input[placeholder*="Type"]'
-            );
-            targetInputs.forEach((el) => {
-              el.value = text;
-              el.dispatchEvent(new Event('input', { bubbles: true }));
+            const selectors = [
+              '#jarvis-type-input',
+              '#home-message-input',
+              '#mini-voice-box-text-input',
+              '#orb-input',
+              'input[placeholder*="speak"]',
+              'input[placeholder*="Type"]',
+            ];
+            selectors.forEach((sel) => {
+              const el = document.querySelector<HTMLInputElement>(sel);
+              if (el) {
+                el.value = liveText;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+              }
             });
           } catch {}
 
-          if (finalTranscript) {
+          if (finalTranscript.trim()) {
             speechDetectedRef.current = false;
             setIsListening(false);
             stopListening();
             setTimeout(() => {
-              submitCommand(finalTranscript);
+              submitCommand(finalTranscript.trim());
             }, 300);
           }
         };

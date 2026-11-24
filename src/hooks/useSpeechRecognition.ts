@@ -6,6 +6,7 @@ export interface UseSpeechRecognitionOptions {
   setInputText?: (text: string) => void;
   setQuery?: (text: string) => void;
   setInput?: (text: string) => void;
+  setTypedInput?: (text: string) => void;
   onFinalTranscript?: (text: string) => void;
 }
 
@@ -19,11 +20,44 @@ export interface UseSpeechRecognitionReturn {
   isSupported: boolean;
 }
 
+// Push live text into every bottom input box in the app via DOM
+function domPushLiveText(liveText: string) {
+  try {
+    const selectors = [
+      '#home-message-input',
+      '#jarvis-type-input',
+      '#mini-voice-box-text-input',
+      '#orb-input',
+      '#voice-input',
+      'input[placeholder*="Ask AGNI"]',
+      'input[placeholder*="Type or tap"]',
+      'input[placeholder*="speak"]',
+      'input[placeholder*="Type"]',
+      'textarea[placeholder*="speak"]',
+      'textarea[placeholder*="Type"]',
+    ];
+    selectors.forEach((sel) => {
+      try {
+        const els = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(sel);
+        els.forEach((el) => {
+          if (!el) return;
+          // Only update visible, editable, non-submit inputs
+          if ((el as HTMLInputElement).type === 'submit' || (el as HTMLInputElement).type === 'button') return;
+          el.value = liveText;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      } catch {}
+    });
+  } catch {}
+}
+
 export function useSpeechRecognition({
   selectedLanguage = 'en-IN',
   setInputText,
   setQuery,
   setInput,
+  setTypedInput,
   onFinalTranscript,
 }: UseSpeechRecognitionOptions = {}): UseSpeechRecognitionReturn {
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -32,16 +66,17 @@ export function useSpeechRecognition({
 
   const recognitionRef = useRef<any | null>(null);
   const selectedLangRef = useRef<string>(selectedLanguage);
+  const isListeningRef = useRef<boolean>(false);
+  const accumulatedFinalRef = useRef<string>('');
 
   useEffect(() => {
     selectedLangRef.current = selectedLanguage;
   }, [selectedLanguage]);
 
   const stopListening = useCallback(() => {
+    isListeningRef.current = false;
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
+      try { recognitionRef.current.stop(); } catch {}
     }
     setIsListening(false);
   }, []);
@@ -53,12 +88,14 @@ export function useSpeechRecognition({
         return;
       }
 
-      // Abort any existing instance
+      // Abort any existing instance cleanly
       if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {}
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
       }
+
+      accumulatedFinalRef.current = '';
+      isListeningRef.current = true;
 
       try {
         const SpeechRecognition =
@@ -66,71 +103,97 @@ export function useSpeechRecognition({
         const recognition = new SpeechRecognition();
 
         const langToUse = resolveLanguageCode(langOverride || selectedLangRef.current || 'en-IN');
-        recognition.interimResults = true;
-        recognition.continuous = false;
+
+        // ─── CRITICAL settings ───────────────────────────────────────────────
         recognition.lang = langToUse;
+        recognition.interimResults = true;    // MUST be true for live typing
+        recognition.continuous = true;        // Keep listening continuously
+        recognition.maxAlternatives = 1;
+        // ────────────────────────────────────────────────────────────────────
 
         recognition.onstart = () => {
           setIsListening(true);
           setError(null);
+          console.log('[STT] Started, lang:', langToUse);
         };
 
         recognition.onresult = (event: any) => {
-          let finalTranscript = '';
           let interimTranscript = '';
+          let finalTranscript = '';
+
           for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcriptChunk = event.results[i][0].transcript;
+            const chunk = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript += transcriptChunk;
+              finalTranscript += chunk + ' ';
+              accumulatedFinalRef.current += chunk + ' ';
             } else {
-              interimTranscript += transcriptChunk;
+              interimTranscript += chunk + ' ';
             }
           }
-          const text = finalTranscript || interimTranscript;
-          console.log('Transcript:', text);
 
-          setTranscript(text);
-          // UPDATE BOTH STATES - THIS IS THE FIX:
-          if (setInputText) setInputText(text);
-          if (setQuery) setQuery(text);
-          if (setInput) setInput(text);
+          // Live text = all accumulated finals + current interim
+          const liveText = (accumulatedFinalRef.current + interimTranscript).trim();
+          console.log('[STT] LIVE:', liveText);
 
-          // Direct DOM live typing into bottom input box across Home Hub & Jarvis
-          try {
-            const targetInputs = document.querySelectorAll<HTMLInputElement>(
-              '#jarvis-type-input, #home-message-input, #mini-voice-box-text-input, input[placeholder*="speak"], input[placeholder*="Type"]'
-            );
-            targetInputs.forEach((el) => {
-              el.value = text;
-              el.dispatchEvent(new Event('input', { bubbles: true }));
-            });
-          } catch {}
+          // ── Update React state ──────────────────────────────────────────
+          setTranscript(liveText);
+          if (typeof setInputText === 'function') setInputText(liveText);
+          if (typeof setQuery === 'function') setQuery(liveText);
+          if (typeof setInput === 'function') setInput(liveText);
+          if (typeof setTypedInput === 'function') setTypedInput(liveText);
 
-          if (finalTranscript && onFinalTranscript) {
-            onFinalTranscript(finalTranscript);
+          // ── CRITICAL: Direct DOM push so bottom box types LIVE ──────────
+          domPushLiveText(liveText);
+
+          // Fire onFinalTranscript when a sentence is finalized
+          if (finalTranscript.trim() && onFinalTranscript) {
+            onFinalTranscript(finalTranscript.trim());
           }
         };
 
         recognition.onerror = (event: any) => {
-          console.warn('SpeechRecognition error:', event.error);
-          setError(event.error);
-          setIsListening(false);
+          const err = event.error as string;
+          console.warn('[STT] Error:', err);
+          // On benign errors, auto-restart
+          if (err === 'no-speech' || err === 'audio-capture') {
+            setTimeout(() => {
+              if (isListeningRef.current && recognitionRef.current) {
+                try { recognitionRef.current.start(); } catch {}
+              }
+            }, 500);
+            return;
+          }
+          // Fatal errors
+          setError(err);
+          if (err === 'not-allowed' || err === 'permission-denied') {
+            isListeningRef.current = false;
+            setIsListening(false);
+          }
         };
 
         recognition.onend = () => {
-          setIsListening(false);
-          // Do not clear input on onend
+          // Auto-restart if we're still supposed to be listening
+          if (isListeningRef.current) {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.warn('[STT] Restart failed:', e);
+            }
+          } else {
+            setIsListening(false);
+          }
         };
 
         recognitionRef.current = recognition;
         recognition.start();
       } catch (err: any) {
-        console.warn('SpeechRecognition start failed:', err);
+        console.warn('[STT] Start failed:', err);
         setError(err?.message || 'Could not start speech recognition');
+        isListeningRef.current = false;
         setIsListening(false);
       }
     },
-    [onFinalTranscript, setInput, setInputText, setQuery]
+    [onFinalTranscript, setInput, setInputText, setQuery, setTypedInput]
   );
 
   const toggleListening = useCallback(
@@ -146,10 +209,9 @@ export function useSpeechRecognition({
 
   useEffect(() => {
     return () => {
+      isListeningRef.current = false;
       if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {}
+        try { recognitionRef.current.abort(); } catch {}
       }
     };
   }, []);

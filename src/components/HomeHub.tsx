@@ -116,14 +116,14 @@ export const HomeHub: React.FC<HomeHubProps> = ({
   const toggleMic = () => {
     if (isListening) {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try { recognitionRef.current.stop(); } catch {}
       }
       setIsListening(false);
       return;
     }
 
     if (!isSpeechRecognitionSupported()) {
-      console.warn('Speech recognition is not supported in this browser. You can type your query or test voice mode.');
+      console.warn('Speech recognition not supported.');
       return;
     }
 
@@ -132,52 +132,67 @@ export const HomeHub: React.FC<HomeHubProps> = ({
       const recognition = createSpeechRecognition(selectedLanguage);
       if (!recognition) return;
 
-      recognition.continuous = false;
-      recognition.interimResults = true;
+      // ─── CRITICAL settings for LIVE typing ───────────────────────────
+      recognition.continuous = true;
+      recognition.interimResults = true;    // MUST be true
       recognition.lang = selectedLanguage;
+      recognition.maxAlternatives = 1;
+      // ─────────────────────────────────────────────────────────────────
+
       recognitionRef.current = recognition;
       setIsListening(true);
 
+      let accumulatedFinal = '';
+
       recognition.onresult = (event: any) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
+        let interim = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
+          const chunk = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript;
+            accumulatedFinal += chunk + ' ';
           } else {
-            interimTranscript += transcript;
+            interim += chunk + ' ';
           }
         }
-        const text = finalTranscript || interimTranscript;
-        console.log("Transcript:", text);
-        // UPDATE BOTH STATES - THIS IS THE FIX:
-        if (setInputText) setInputText(text);
+        const liveText = (accumulatedFinal + interim).trim();
+        console.log('[HomeHub STT] LIVE:', liveText);
 
+        // Update React state so input re-renders
+        setInputText(liveText);
+
+        // Direct DOM push as safety net
         try {
-          const targetInputs = document.querySelectorAll<HTMLInputElement>(
-            '#home-message-input, #jarvis-type-input, input[placeholder*="speak"], input[placeholder*="Type"]'
-          );
-          targetInputs.forEach((el) => {
-            el.value = text;
+          const el = document.getElementById('home-message-input') as HTMLInputElement | null;
+          if (el) {
+            el.value = liveText;
             el.dispatchEvent(new Event('input', { bubbles: true }));
-          });
+          }
         } catch {}
       };
 
       recognition.onerror = (event: any) => {
-        console.warn('Speech recognition error in HomeHub:', event.error);
+        const err = event.error as string;
+        console.warn('[HomeHub STT] Error:', err);
+        if (err === 'no-speech' || err === 'audio-capture') {
+          // auto-restart on benign errors
+          setTimeout(() => {
+            if (recognitionRef.current) {
+              try { recognitionRef.current.start(); } catch {}
+            }
+          }, 400);
+          return;
+        }
         setIsListening(false);
       };
 
       recognition.onend = () => {
+        // Do not clear input; do not auto-restart in HomeHub (single-shot mic)
         setIsListening(false);
-        // Do not clear input on onend
       };
 
       recognition.start();
     } catch (err) {
-      console.warn('Mic activation failed:', err);
+      console.warn('[HomeHub STT] Start failed:', err);
       setIsListening(false);
     }
   };

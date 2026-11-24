@@ -444,44 +444,57 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
         const selectedLanguage = langCode || currentLangConfig.speechCode || 'en-IN';
         const recognition = createSpeechRecognition(selectedLanguage);
         if (recognition) {
-          recognition.continuous = false;
-          recognition.interimResults = true;
+          // ─── CRITICAL settings for LIVE typing ─────────────────────────
+          recognition.continuous = true;      // keep running so interim fires
+          recognition.interimResults = true;  // MUST be true for live typing
           recognition.lang = selectedLanguage;
+          recognition.maxAlternatives = 1;
+          // ───────────────────────────────────────────────────────────────
           recognitionRef.current = recognition;
+
+          let accumulatedFinal = '';
 
           recognition.onresult = (event: any) => {
             hasSpokenRef.current = true;
-            let finalTranscript = '';
-            let interimTranscript = '';
+            let interim = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
-              const transcriptChunk = event.results[i][0].transcript;
+              const chunk = event.results[i][0].transcript;
               if (event.results[i].isFinal) {
-                finalTranscript += transcriptChunk;
+                accumulatedFinal += chunk + ' ';
               } else {
-                interimTranscript += transcriptChunk;
+                interim += chunk + ' ';
               }
             }
-            const text = finalTranscript || interimTranscript;
-            console.log("Transcript:", text);
-            // UPDATE BOTH STATES - THIS IS THE FIX:
-            if (setTypedInput) setTypedInput(text);
-            if (setTranscript) setTranscript(text);
-            transcriptRef.current = text;
+            const liveText = (accumulatedFinal + interim).trim();
+            console.log('[SiriOverlay STT] LIVE:', liveText);
 
+            // ── Update React state ────────────────────────────────────────
+            if (setTypedInput) setTypedInput(liveText);
+            if (setTranscript) setTranscript(liveText);
+            transcriptRef.current = liveText;
+
+            // ── CRITICAL: Direct DOM push so bottom box types LIVE ────────
             try {
-              const targetInputs = document.querySelectorAll<HTMLInputElement>(
-                '#mini-voice-box-text-input, #home-message-input, #jarvis-type-input, input[placeholder*="speak"], input[placeholder*="Type"]'
-              );
-              targetInputs.forEach((el) => {
-                el.value = text;
-                el.dispatchEvent(new Event('input', { bubbles: true }));
+              const selectors = [
+                '#mini-voice-box-text-input',
+                '#home-message-input',
+                '#jarvis-type-input',
+                '#orb-input',
+                'input[placeholder*="speak"]',
+                'input[placeholder*="Type"]',
+              ];
+              selectors.forEach((sel) => {
+                const el = document.querySelector<HTMLInputElement>(sel);
+                if (el) {
+                  el.value = liveText;
+                  el.dispatchEvent(new Event('input', { bubbles: true }));
+                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
               });
             } catch {}
 
-            if (finalTranscript) {
-              transcriptRef.current = finalTranscript;
-              setTypedInput(finalTranscript);
-              // Final transcript stays in input, Send button enables
+            // On final chunk, start silence timer to auto-submit
+            if (accumulatedFinal.trim()) {
               if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
               silenceTimerRef.current = setTimeout(() => {
                 if (activeRef.current && transcriptRef.current.trim()) {
