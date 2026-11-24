@@ -540,5 +540,6 @@ Made in India, To Serve the World. 🇮🇳`;
     }
   }
 
+  console.error('[AGNI BUG FINDER] Chat completion failure:', lastError);
   return res.status(500).json({ error: lastError?.message || 'GROQ_API_KEY missing or invalid - check Vercel' });
 }

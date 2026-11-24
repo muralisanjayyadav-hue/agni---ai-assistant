@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { runSystemCommand } from '../lib/agniDesktop';
+import { runAgniDiagnostics } from '../lib/agniDiagnostics';
 
 export interface UseJarvisReturn {
   isListening: boolean;
@@ -176,6 +177,41 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         return;
       }
 
+      // Check for Diagnostics / Bug Finder queries
+      if (
+        /\b(agni (find bugs|check health|diagnose)|run diagnostics|find issues|find bugs|check bugs|diagnose|diagnostics|check health)\b/i.test(lower)
+      ) {
+        setIsThinking(true);
+        isThinkingRef.current = true;
+        setJarvisReply('Running AGNI self-diagnostics & bug finder...');
+        speakAloud('Scanning AGNI core for bugs now.');
+
+        try {
+          const report = await runAgniDiagnostics();
+          const bugs = report.summary.failed + report.summary.warned;
+          const statusText =
+            bugs === 0
+              ? 'All AGNI systems are 100% operational! 0 bugs found across Groq keys, STT mic, and network.'
+              : `AGNI Self-Diagnostics: ${report.summary.healthScore}% health. Found ${bugs} potential issue(s). Check the Diagnostics Hub for details.`;
+
+          setJarvisReply(statusText);
+          setLastAction('diagnostics_run');
+          setIsThinking(false);
+          isThinkingRef.current = false;
+          speakAloud(bugs === 0 ? 'All systems operational, zero bugs found.' : `Found ${bugs} bugs, check diagnostics page.`);
+          if (onNavigate) {
+            onNavigate('diagnostics');
+          }
+        } catch (diagErr: any) {
+          const errMsg = `Diagnostics completed with notice: ${diagErr?.message || diagErr}`;
+          setJarvisReply(errMsg);
+          setIsThinking(false);
+          isThinkingRef.current = false;
+          speakAloud('Diagnostics scan completed.');
+        }
+        return;
+      }
+
       setIsThinking(true);
       isThinkingRef.current = true;
       setJarvisReply('Jarvis is processing...');
@@ -190,6 +226,15 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
             mode: 'jarvis',
           }),
         });
+
+        if (res.status === 429) {
+          const limitMsg = 'Groq rate limit encountered. Switched to next key in circle rotation. Please try again.';
+          setJarvisReply(limitMsg);
+          setIsThinking(false);
+          isThinkingRef.current = false;
+          speakAloud('Rate limit reached, switched to next key.');
+          return;
+        }
 
         const data = await res.json();
         const sayText = data.say || data.reply || data.text || 'I have completed your request, Sir.';
@@ -299,7 +344,16 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ audioBase64: base64Audio, mimeType, language: 'en' }),
             });
-            const data = await res.json();
+            if (res.status === 429) {
+          const limitMsg = 'Groq rate limit encountered. Switched to next key in circle rotation. Please try again.';
+          setJarvisReply(limitMsg);
+          setIsThinking(false);
+          isThinkingRef.current = false;
+          speakAloud('Rate limit reached, switched to next key.');
+          return;
+        }
+
+        const data = await res.json();
             const text = (data.text || data.transcription || '').trim();
             if (text) {
               console.log('[Jarvis Whisper Transcribed]:', text);

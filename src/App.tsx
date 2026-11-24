@@ -46,6 +46,9 @@ import {
   isPrimaryFounder,
 } from './utils/security';
 import { GOLD_FOUNDERS, getFounderName } from './lib/auth';
+import { AgniErrorBoundary } from './components/AgniErrorBoundary';
+import { DiagnosticsHub } from './components/DiagnosticsHub';
+import { runAgniDiagnostics } from './lib/agniDiagnostics';
 import { Volume2, Sparkles, Radio, Square, Shield, Heart, Flame } from 'lucide-react';
 import {
   TabMode,
@@ -99,6 +102,15 @@ export default function App() {
           window.history.replaceState({}, '', '/login');
           setCurrentPath('/login');
         } catch {}
+      }
+    }
+
+    // Auto-open Diagnostics if navigating directly to /diagnostics
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname.toLowerCase();
+      const h = window.location.hash.toLowerCase();
+      if (p.includes('/diagnostics') || h.includes('diagnostics')) {
+        setActiveTab('diagnostics');
       }
     }
   }, []);
@@ -1121,6 +1133,49 @@ export default function App() {
     const currentMsgs = activeSession?.messages || messages;
     const updatedMessages = [...currentMsgs, userMsg];
     setMessages(updatedMessages);
+
+    // Self-Diagnostics & Bug Finder Command Interception
+    const lower = (text || '').toLowerCase().trim();
+    if (
+      /\b(agni (find bugs|check health|diagnose)|run diagnostics|find issues|find bugs|check bugs|diagnose|diagnostics|check health)\b/i.test(lower)
+    ) {
+      setIsChatLoading(true);
+      try {
+        const report = await runAgniDiagnostics();
+        const bugs = report.summary.failed + report.summary.warned;
+        const formattedList = report.checks
+          .map((c) => {
+            const icon = c.status === 'pass' ? '✅' : c.status === 'warn' ? '⚠️' : '❌';
+            return `${icon} **${c.name}**: ${c.message}${c.fix ? `\n   ↳ *Fix Hint:* ${c.fix}` : ''}`;
+          })
+          .join('\n\n');
+
+        const diagReply = [
+          `🔍 **AGNI Self-Diagnostics & Bug Finder Report**`,
+          `Health Score: **${report.summary.healthScore}%** (${report.summary.passed}/${report.summary.total} checks passed, **${bugs} bug${bugs === 1 ? '' : 's'} / warning${bugs === 1 ? '' : 's'}** detected)`,
+          '',
+          formattedList,
+          '',
+          `💡 *You can also access the visual **Diagnostics Hub** from Settings or by visiting \`/diagnostics\` to test microphone, clear cache, or run auto-fixes.*`,
+        ].join('\n');
+
+        const aiMsg: ChatMessage = {
+          id: `ai-${Date.now()}`,
+          role: 'model',
+          text: diagReply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+
+        setMessages([...updatedMessages, aiMsg]);
+        setIsChatLoading(false);
+
+        speakText(bugs === 0 ? 'All systems operational, zero bugs found.' : `Found ${bugs} bugs, check diagnostics page.`);
+        return;
+      } catch (e: any) {
+        console.error('[AGNI BUG FINDER] Diagnostics in chat error:', e);
+      }
+    }
+
     setIsChatLoading(true);
 
     try {
@@ -1463,6 +1518,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className={activeTab === 'chat' || activeTab === 'heart_care' ? 'flex-1 flex flex-col min-h-0' : activeTab === 'canvas' ? 'flex-1 flex flex-col min-h-[700px]' : 'flex-1 pb-10'}>
+        <AgniErrorBoundary onOpenDiagnostics={() => setActiveTab('diagnostics')}>
         <Suspense fallback={<ViewLoadingSkeleton />}>
         {activeTab === 'home' && (
           <HomeHub
@@ -1639,12 +1695,16 @@ export default function App() {
             onBack={() => setActiveTab('home')}
           />
         )}
+        {activeTab === 'diagnostics' && (
+          <DiagnosticsHub onBack={() => setActiveTab('home')} />
+        )}
 
         <ExamPredictorModal
           isOpen={isExamPredictorOpen}
           onClose={() => setIsExamPredictorOpen(false)}
         />
               </Suspense>
+        </AgniErrorBoundary>
       </main>
 
       {/* Global Floating AI Speaking Interrupt Bar */}

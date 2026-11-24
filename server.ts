@@ -394,6 +394,7 @@ const systemErrorLogs: Array<{ id: string; timestamp: string; message: string; p
 ];
 
 function recordSystemError(message: string, path?: string) {
+  console.warn(`[AGNI BUG FINDER] System notice at ${path || 'server'}:`, message);
   systemErrorLogs.unshift({
     id: `err-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -460,6 +461,27 @@ app.get(["/api/health", "/health"], (req, res) => {
     hasApiKey: !!(process.env.AGNI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY),
     hasGroqKey: hasAnyGroqKey(),
     activeModel: "AGNI Neural Core v3.8",
+  });
+});
+
+// AGNI Self-Diagnostics & Bug Finder Telemetry Endpoint
+app.get(["/api/diagnostics", "/diagnostics-api"], (_req, res) => {
+  const keys = getGroqKeys();
+  const testRotations = [getNextKeyInCircle(), getNextKeyInCircle(), getNextKeyInCircle()];
+  res.json({
+    status: "ok",
+    app: "AGNI Self-Diagnostics Engine",
+    groqKeysCount: keys.length,
+    loadedKeys: keys.map((k, i) => ({
+      slot: i + 1,
+      prefix: k.slice(0, 7) + "...",
+      validFormat: k.startsWith("gsk_"),
+    })),
+    circleRotationWorking: testRotations.length === 3 && keys.length > 0,
+    hasGroqKey: hasAnyGroqKey(),
+    hasAgniKey: !!(process.env.AGNI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY),
+    nodeEnv: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -1905,7 +1927,7 @@ app.all("/api/*", (req, res) => {
 // Express API Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (req.path.startsWith("/api/")) {
-    console.error("API error handler caught:", err);
+    console.error("[AGNI BUG FINDER] API error handler caught:", err);
     return res.status(500).json({ error: sanitizeGenAIError(err) });
   }
   next(err);

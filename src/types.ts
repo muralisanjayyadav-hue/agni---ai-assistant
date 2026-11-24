@@ -20,7 +20,8 @@ export type TabMode =
   | 'my_voice'
   | 'parent_dashboard'
   | 'founder_analytics'
-  | 'founder_panel';
+  | 'founder_panel'
+  | 'diagnostics';
 
 export interface AuthUser {
   id: string;

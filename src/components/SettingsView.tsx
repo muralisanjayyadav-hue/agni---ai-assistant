@@ -28,6 +28,7 @@ import {
   Award,
   Users,
   BarChart2,
+  Activity,
 } from 'lucide-react';
 import { UserPreferences, AuthUser } from '../types';
 import { SUPPORTED_LANGUAGES, getLanguageOption } from '../data/languages';
@@ -900,6 +901,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             </>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigateTab) {
+                onNavigateTab("diagnostics");
+              } else {
+                window.location.href = "/diagnostics";
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-900/40 cursor-pointer"
+          >
+            <Activity className="h-3.5 w-3.5 text-cyan-400" />
+            <span>🔍 Bug Finder &amp; Self-Diagnostics</span>
+          </button>
         </div>
       </div>
     </div>

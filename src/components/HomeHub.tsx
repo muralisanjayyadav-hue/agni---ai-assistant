@@ -202,6 +202,15 @@ export const HomeHub: React.FC<HomeHubProps> = ({
     const prompt = inputText.trim();
     if (!prompt) return;
 
+    const lower = prompt.toLowerCase();
+    if (
+      /\b(agni (find bugs|check health|diagnose)|run diagnostics|find issues|find bugs|check bugs|diagnose|diagnostics|check health)\b/i.test(lower)
+    ) {
+      onSelectTab('diagnostics');
+      setInputText('');
+      return;
+    }
+
     // Route prompt directly to AI Chat
     onQuickPrompt('chat', prompt);
     setInputText('');

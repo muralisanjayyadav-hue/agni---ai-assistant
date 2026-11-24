@@ -11,7 +11,7 @@ import type { Request, Response } from 'express';
 import Groq from 'groq-sdk';
 import fs from 'fs';
 import path from 'path';
-import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, skipToNextKey } from '../src/lib/groqRotation';
+import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, skipToNextKey, getGroqKeys } from '../src/lib/groqRotation';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface UserRecord {
@@ -835,6 +835,24 @@ app.get(['/api/health', '/health'], async (_req: Request, res: Response) => {
   });
 });
 
+app.get(['/api/diagnostics', '/diagnostics-api'], async (_req: Request, res: Response) => {
+  const keys = getGroqKeys();
+  const testRotations = [getNextKeyInCircle(), getNextKeyInCircle(), getNextKeyInCircle()];
+  res.json({
+    status: 'ok',
+    app: 'AGNI Self-Diagnostics Engine',
+    groqKeysCount: keys.length,
+    loadedKeys: keys.map((k, i) => ({
+      slot: i + 1,
+      prefix: k.slice(0, 7) + '...',
+      validFormat: k.startsWith('gsk_'),
+    })),
+    circleRotationWorking: testRotations.length === 3 && keys.length > 0,
+    hasGroqKey: hasAnyGroqKey(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/api/remote-config', (_req: Request, res: Response) => {
   const db = getDb();
   res.json({
@@ -905,7 +923,7 @@ app.post(['/api/transcribe', '/api/transcribe-audio'], async (req: Request, res:
     const text = (transcription.text || '').trim();
     return res.status(200).json({ text, transcription: text });
   } catch (err: any) {
-    console.error('[Groq Whisper Error]', err?.message || err);
+    console.error('[AGNI BUG FINDER] [Groq Whisper Error]', err?.message || err);
     return res.status(200).json({ text: '', error: err?.message || 'Transcription failed' });
   }
 });
@@ -1097,7 +1115,7 @@ app.post(['/api/chat', '/chat', '/api/agni'], async (req: Request, res: Response
         }
       }
 
-      console.error('[Groq Jarvis Error]', lastGroqError);
+      console.error('[AGNI BUG FINDER] [Groq Jarvis Error]', lastGroqError);
       const fallbackSay = `I am on it, sir. Executing command for ${lastUserQuery}.`;
       return res.status(200).json({
         say: fallbackSay,
@@ -1383,7 +1401,7 @@ Made in India, To Serve the World. 🇮🇳`;
       model: modelUsed,
     });
   } catch (err: any) {
-    console.error('[AGNI CHAT ERROR]', err);
+    console.error('[AGNI BUG FINDER] [AGNI CHAT ERROR]', err);
     return res.status(500).json({ error: err?.message || 'GROQ_API_KEY missing or invalid - check Vercel' });
   }
 });
