@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { runSystemCommand } from '../lib/agniDesktop';
 import { runAgniDiagnostics } from '../lib/agniDiagnostics';
+import { runFullAgniTests } from '../lib/agniTestSuite';
 
 export interface UseJarvisReturn {
   isListening: boolean;
@@ -208,6 +209,47 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
           setIsThinking(false);
           isThinkingRef.current = false;
           speakAloud('Diagnostics scan completed.');
+        }
+        return;
+      }
+
+      // Check for Test Suite queries ("test again", "test what we did last time", "test agni", "run tests", "check fixes")
+      if (
+        /\b(test again|test what we did last time|test agni|run tests|check fixes|test last fixes|run all tests)\b/i.test(lower)
+      ) {
+        setIsThinking(true);
+        isThinkingRef.current = true;
+        setJarvisReply('Running automated test suite for last fixes...');
+        speakAloud('Testing all last fixes now.');
+
+        try {
+          const testResults = await runFullAgniTests();
+          const passedCount = testResults.tests.filter((t) => t.status === 'pass').length;
+          const totalCount = testResults.tests.length;
+          const failedTests = testResults.tests.filter((t) => t.status === 'fail');
+          const allPassed = failedTests.length === 0;
+
+          const spokenSummary = allPassed
+            ? `Tested ${totalCount} checks, ${passedCount} pass, all last fixes working.`
+            : `Found bug in ${failedTests[0].name}, check test page.`;
+
+          const writtenSummary = `🧪 AGNI Automated Test Suite: ${passedCount}/${totalCount} tests passed.\n\n` +
+            testResults.tests.map((t) => `${t.status === 'pass' ? '✅' : '❌'} ${t.name}: ${t.status.toUpperCase()}`).join('\n');
+
+          setJarvisReply(writtenSummary);
+          setLastAction('test_suite_run');
+          setIsThinking(false);
+          isThinkingRef.current = false;
+          speakAloud(spokenSummary);
+          if (onNavigate) {
+            onNavigate('test');
+          }
+        } catch (testErr: any) {
+          const errMsg = `Test suite encountered notice: ${testErr?.message || testErr}`;
+          setJarvisReply(errMsg);
+          setIsThinking(false);
+          isThinkingRef.current = false;
+          speakAloud('Test suite finished with notice.');
         }
         return;
       }

@@ -48,7 +48,9 @@ import {
 import { GOLD_FOUNDERS, getFounderName } from './lib/auth';
 import { AgniErrorBoundary } from './components/AgniErrorBoundary';
 import { DiagnosticsHub } from './components/DiagnosticsHub';
+import { AgniTestHub } from './components/AgniTestHub';
 import { runAgniDiagnostics } from './lib/agniDiagnostics';
+import { runFullAgniTests } from './lib/agniTestSuite';
 import { Volume2, Sparkles, Radio, Square, Shield, Heart, Flame } from 'lucide-react';
 import {
   TabMode,
@@ -105,11 +107,13 @@ export default function App() {
       }
     }
 
-    // Auto-open Diagnostics if navigating directly to /diagnostics
+    // Auto-open Diagnostics or Test Hub if navigating directly to /diagnostics or /test
     if (typeof window !== 'undefined') {
       const p = window.location.pathname.toLowerCase();
       const h = window.location.hash.toLowerCase();
-      if (p.includes('/diagnostics') || h.includes('diagnostics')) {
+      if (p.includes('/test') || h.includes('test')) {
+        setActiveTab('test');
+      } else if (p.includes('/diagnostics') || h.includes('diagnostics')) {
         setActiveTab('diagnostics');
       }
     }
@@ -1176,6 +1180,72 @@ export default function App() {
       }
     }
 
+    // Automated Test Suite Command Interception ("test again", "test what we did last time", "test agni", "run tests", "check fixes")
+    if (
+      /\b(test again|test what we did last time|test agni|run tests|check fixes|test last fixes|run all tests)\b/i.test(lower)
+    ) {
+      setIsChatLoading(true);
+      try {
+        const testResult = await runFullAgniTests();
+        const passedCount = testResult.tests.filter((t) => t.status === 'pass').length;
+        const totalCount = testResult.tests.length;
+        const failedTests = testResult.tests.filter((t) => t.status === 'fail');
+        const allPassed = failedTests.length === 0;
+
+        const formattedList = testResult.tests
+          .map((t) => {
+            const icon = t.status === 'pass' ? '✅' : '❌';
+            return `${icon} **${t.name}**\n   - *Expected:* ${t.expected}\n   - *Actual:* ${t.actual}${t.fix && t.status === 'fail' ? `\n   - *Fix:* ${t.fix}` : ''}`;
+          })
+          .join('\n\n');
+
+        const testReply = [
+          `🧪 **AGNI Automated Test Suite - Last Fixes Verification**`,
+          `Result: **${passedCount}/${totalCount} tests passed** (${allPassed ? 'All last fixes WORKING! 100% Health' : `${failedTests.length} bug(s) found`})`,
+          '',
+          formattedList,
+          '',
+          `💡 *You can also access the **Test Hub** at \`/test\` or via the Diagnostics page to re-run individual tests.*`,
+        ].join('\n');
+
+        const aiMsg: ChatMessage = {
+          id: `ai-${Date.now()}`,
+          role: 'model',
+          text: testReply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+
+        setMessages([...updatedMessages, aiMsg]);
+        setIsChatLoading(false);
+
+        if (allPassed) {
+          speakText(`Tested ${totalCount} checks, ${passedCount} pass, all last fixes working.`);
+        } else {
+          speakText(`Found bug in ${failedTests[0].name}, check test page.`);
+        }
+        return;
+      } catch (e: any) {
+        console.error('[AGNI TEST SUITE] Test suite chat run error:', e);
+      }
+    }
+
+    // Direct Founder Question Affirmation (M. Sanjay)
+    if (
+      /\b(who (is|are|was) (ur|your|the )?(founder|creator|maker|developer|architect|author)|who (made|created|built|developed|founded) (you|u|agni)|whose ai are you|who is m\.?\s*sanjay|tell me about (the )?founder|founder of agni)\b/i.test(lower)
+    ) {
+      const founderReply = 'I was founded by M. Sanjay, a multi-sports person and a kind-hearted innovator. He is the founder of Project AGNI. Project AGNI was created in India to solve day-to-day problems and serve the world.';
+      const aiMsg: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'model',
+        text: founderReply,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages([...updatedMessages, aiMsg]);
+      setIsChatLoading(false);
+      speakText('I was founded by M. Sanjay, founder of Project AGNI.');
+      return;
+    }
+
     setIsChatLoading(true);
 
     try {
@@ -1697,6 +1767,9 @@ export default function App() {
         )}
         {activeTab === 'diagnostics' && (
           <DiagnosticsHub onBack={() => setActiveTab('home')} />
+        )}
+        {activeTab === 'test' && (
+          <AgniTestHub onBack={() => setActiveTab('home')} onNavigateTab={(t) => setActiveTab(t as any)} />
         )}
 
         <ExamPredictorModal

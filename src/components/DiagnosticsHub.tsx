@@ -23,12 +23,15 @@ import {
   DiagnosticCheck,
 } from '../lib/agniDiagnostics';
 import { speakText } from '../utils/speech';
+import { AgniTestHub } from './AgniTestHub';
 
 interface DiagnosticsHubProps {
   onBack?: () => void;
+  defaultTab?: 'diagnostics' | 'test_last_fixes';
 }
 
-export const DiagnosticsHub: React.FC<DiagnosticsHubProps> = ({ onBack }) => {
+export const DiagnosticsHub: React.FC<DiagnosticsHubProps> = ({ onBack, defaultTab = 'diagnostics' }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'diagnostics' | 'test_last_fixes'>(defaultTab);
   const [report, setReport] = useState<DiagnosticsReport | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -174,6 +177,38 @@ export const DiagnosticsHub: React.FC<DiagnosticsHubProps> = ({ onBack }) => {
           </div>
         </div>
 
+        {/* Sub-tab Navigation */}
+        <div className="flex items-center gap-2 border-b border-neutral-800 pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('diagnostics')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeSubTab === 'diagnostics'
+                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
+                : 'text-neutral-400 hover:text-white bg-neutral-900/60 border border-neutral-800'
+            }`}
+          >
+            <Activity className="h-3.5 w-3.5" />
+            <span>🔍 Self-Diagnostics</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('test_last_fixes')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeSubTab === 'test_last_fixes'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                : 'text-neutral-400 hover:text-white bg-neutral-900/60 border border-neutral-800'
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>🧪 Test Last Fixes</span>
+          </button>
+        </div>
+
+        {activeSubTab === 'test_last_fixes' ? (
+          <AgniTestHub onBack={() => setActiveSubTab('diagnostics')} />
+        ) : (
+          <>
         {/* Action feedback toast */}
         {actionFeedback && (
           <div className="rounded-2xl border border-cyan-500/40 bg-cyan-950/40 px-4 py-3 text-xs text-cyan-200 animate-fadeIn flex items-center justify-between">
@@ -441,6 +476,8 @@ export const DiagnosticsHub: React.FC<DiagnosticsHubProps> = ({ onBack }) => {
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

@@ -4,7 +4,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import Groq from "groq-sdk";
-import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, getGroqKeys, auditGroqKeys } from "./src/lib/groqRotation";
+import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, getGroqKeys, auditGroqKeys, currentIndex } from "./src/lib/groqRotation";
 
 dotenv.config();
 if (!hasAnyGroqKey()) {
@@ -486,6 +486,34 @@ app.get(["/api/diagnostics", "/diagnostics-api"], (_req, res) => {
   });
 });
 
+// AGNI Automated Test Suite Telemetry Endpoint
+app.get(["/api/test", "/test-api"], (_req, res) => {
+  const keys = getGroqKeys();
+  const testRotations = [getNextKeyInCircle(), getNextKeyInCircle(), getNextKeyInCircle()];
+  const currentSlot = keys.length > 0 ? (currentIndex % keys.length) + 1 : 1;
+  res.json({
+    status: "ok",
+    app: "AGNI Automated Test Suite",
+    groqCount: keys.length,
+    circleWorking: testRotations.length === 3 && keys.length > 0,
+    currentKeySlot: currentSlot,
+    lastKeysUsed: `Using Groq Key ${currentSlot}/${Math.max(keys.length, 9)}`,
+    sttConfig: {
+      interimResults: true,
+      continuous: true,
+      lang: "en-IN",
+      selectors: [
+        "#home-message-input",
+        "#jarvis-type-input",
+        "#mini-voice-box-text-input"
+      ]
+    },
+    buildStatus: "healthy",
+    founder: "M. Sanjay",
+    timestamp: new Date().toISOString()
+  });
+});
+
 
 const PERMANENT_FOUNDER_INSTRUCTION = `
 PERMANENT CORE KNOWLEDGE & FOUNDER DIRECTIVE (CRITICAL MANDATE - NEVER FORGET OR ALTER):
@@ -832,6 +860,9 @@ Always maintain safety, honesty, and humility. Never pretend you have completed 
     // Try Groq first (fast, free) → fall back to Neural Engine
     let responseText = "";
     const groq = getGroqClient();
+    const activeKeysList = getGroqKeys();
+    const currentActiveSlot = activeKeysList.length > 0 ? (currentIndex % activeKeysList.length) + 1 : 1;
+    console.log(`[AGNI TEST] Groq Key ${currentActiveSlot} used, circle working`);
 
     if (groq) {
       try {

@@ -21,7 +21,7 @@ export interface UseSpeechRecognitionReturn {
 }
 
 // Push live text into every bottom input box in the app via DOM
-function domPushLiveText(liveText: string) {
+export function domPushLiveText(liveText: string) {
   try {
     const selectors = [
       '#home-message-input',

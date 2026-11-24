@@ -21,7 +21,8 @@ export type TabMode =
   | 'parent_dashboard'
   | 'founder_analytics'
   | 'founder_panel'
-  | 'diagnostics';
+  | 'diagnostics'
+  | 'test';
 
 export interface AuthUser {
   id: string;
