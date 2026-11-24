@@ -140,7 +140,15 @@ export const HomeHub: React.FC<HomeHubProps> = ({
       // ─────────────────────────────────────────────────────────────────
 
       recognitionRef.current = recognition;
-      setIsListening(true);
+
+      let retryCount = 0;
+      const MAX_RETRY = 3;
+
+      recognition.onstart = () => {
+        retryCount = 0;
+        setIsListening(true);
+        console.log('[HomeHub STT] Started');
+      };
 
       let accumulatedFinal = '';
 
@@ -171,8 +179,39 @@ export const HomeHub: React.FC<HomeHubProps> = ({
       };
 
       recognition.onerror = (event: any) => {
+        console.log("[AGNI Voice] Error:", event.error, event);
         const err = event.error as string;
         console.warn('[HomeHub STT] Error:', err);
+
+        if (err === 'network') {
+          if (retryCount < MAX_RETRY) {
+            retryCount++;
+            console.log(`[AGNI Voice] Network error, retrying ${retryCount}/${MAX_RETRY} in 1s...`);
+            const statusEl = document.getElementById('live-voice-status');
+            if (statusEl) statusEl.textContent = `Network issue, retrying ${retryCount}/${MAX_RETRY}...`;
+            setTimeout(() => {
+              if (recognitionRef.current) {
+                try { recognitionRef.current.start(); } catch (e) {}
+              }
+            }, 1000);
+            return;
+          } else {
+            const statusEl = document.getElementById('live-voice-status');
+            const fallbackMsg = "Network error - Please check internet, or type manually. Retrying with Groq Whisper...";
+            if (statusEl) statusEl.textContent = fallbackMsg;
+            setIsListening(false);
+            return;
+          }
+        }
+
+        if (err === 'not-allowed' || err === 'permission-denied') {
+          const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
+          const statusEl = document.getElementById('live-voice-status');
+          if (statusEl) statusEl.textContent = msg;
+          setIsListening(false);
+          return;
+        }
+
         if (err === 'no-speech' || err === 'audio-capture') {
           // auto-restart on benign errors
           setTimeout(() => {
@@ -603,6 +642,11 @@ export const HomeHub: React.FC<HomeHubProps> = ({
               <Send className="h-4 w-4" />
             </button>
           </form>
+
+          {/* Live Voice Status for Mic Dictation */}
+          <div id="live-voice-status" className={isListening ? "text-xs text-orange-400 animate-pulse mt-1.5 px-2 text-center" : "hidden"}>
+            Listening... Speak now
+          </div>
 
           {/* Quick Prompt Chips */}
           <div className="mt-3 flex flex-wrap items-center gap-1.5 relative z-10 text-[11px]">

@@ -452,6 +452,14 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
           // ───────────────────────────────────────────────────────────────
           recognitionRef.current = recognition;
 
+          let retryCount = 0;
+          const MAX_RETRY = 3;
+
+          recognition.onstart = () => {
+            retryCount = 0;
+            console.log('[AGNI Voice] Started');
+          };
+
           let accumulatedFinal = '';
 
           recognition.onresult = (event: any) => {
@@ -507,14 +515,40 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
           };
 
           recognition.onerror = (event: any) => {
+            console.log("[AGNI Voice] Error:", event.error, event);
             const errType = event.error || 'unknown';
             console.warn('AGNI Voice SpeechRecognition event info:', errType);
-            if (errType === 'not-allowed' || errType === 'service-not-allowed') {
-              setErrorMessage('Microphone access blocked. Click "Allow" in browser permissions or type your question.');
-              stopListening();
+
+            if (errType === 'network') {
+              if (retryCount < MAX_RETRY) {
+                retryCount++;
+                console.log(`[AGNI Voice] Network error, retrying ${retryCount}/${MAX_RETRY} in 1s...`);
+                const statusEl = document.getElementById('live-voice-status');
+                if (statusEl) statusEl.textContent = `Network issue, retrying ${retryCount}/${MAX_RETRY}...`;
+                setTimeout(() => {
+                  if (activeRef.current && recognitionRef.current) {
+                    try { recognitionRef.current.start(); } catch (e) {}
+                  }
+                }, 1000);
+                return;
+              } else {
+                console.warn('[AGNI Voice] Max retries reached for network error');
+                const statusEl = document.getElementById('live-voice-status');
+                const fallbackMsg = "Network error - Please check internet, or type manually. Retrying with Groq Whisper...";
+                if (statusEl) statusEl.textContent = fallbackMsg;
+                setErrorMessage(fallbackMsg);
+                return;
+              }
             }
-            // For 'network' error (e.g. Electron) or 'no-speech', do not stop.
-            // The active MediaRecorder + Audio Energy VAD will transcribe via Groq Whisper!
+
+            if (errType === 'not-allowed' || errType === 'service-not-allowed' || errType === 'permission-denied') {
+              const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
+              const statusEl = document.getElementById('live-voice-status');
+              if (statusEl) statusEl.textContent = msg;
+              setErrorMessage(msg);
+              stopListening();
+              return;
+            }
           };
 
           recognition.onend = () => {
@@ -1747,7 +1781,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
                       <span className="inline-block w-1.5 h-4 bg-cyan-400 ml-1.5 animate-pulse align-middle" />
                     </>
                   ) : (
-                    <span className="text-neutral-400 italic">Listening... Speak now and your words will type down here live</span>
+                    <span id="live-voice-status" className="text-neutral-400 italic">Listening... Speak now and your words will type down here live</span>
                   )}
                 </p>
               </div>

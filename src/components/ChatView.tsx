@@ -185,7 +185,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
       recognition.continuous = false;
       recognition.interimResults = true;
 
+      let retryCount = 0;
+      const MAX_RETRY = 3;
+
       recognition.onstart = () => {
+        retryCount = 0;
         setIsListening(true);
         setVoiceNotice(`Listening in ${langOption.nativeName || langOption.label}... Speak now, typing down your words live.`);
       };
@@ -208,7 +212,25 @@ export const ChatView: React.FC<ChatViewProps> = ({
       };
 
       recognition.onerror = (event: any) => {
+        console.log("[AGNI Voice] Error:", event.error, event);
         console.warn('Speech error:', event);
+        if (event.error === 'network') {
+          if (retryCount < MAX_RETRY) {
+            retryCount++;
+            console.log(`[AGNI Voice] Network error, retrying ${retryCount}/${MAX_RETRY} in 1s...`);
+            setVoiceNotice(`Network issue, retrying ${retryCount}/${MAX_RETRY}...`);
+            setTimeout(() => {
+              if (recognitionRef.current) {
+                try { recognitionRef.current.start(); } catch (e) {}
+              }
+            }, 1000);
+            return;
+          } else {
+            setVoiceNotice("Network error - Please check internet, or type manually. Retrying with Groq Whisper...");
+            setIsListening(false);
+            return;
+          }
+        }
         setIsListening(false);
         setVoiceNotice(`Speech recognition error: ${event.error || 'Check microphone'}`);
         setTimeout(() => setVoiceNotice(null), 4000);

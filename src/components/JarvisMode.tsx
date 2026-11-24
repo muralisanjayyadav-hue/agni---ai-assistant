@@ -148,7 +148,7 @@ export const JarvisMode: React.FC<JarvisModeProps> = ({ onClose, onNavigate }) =
           >
             {isListening ? <Mic className="h-7 w-7 text-white" /> : <Mic className="h-7 w-7 text-black" />}
           </button>
-          <span className="text-xs font-semibold text-white tracking-wide">
+          <span id="live-voice-status" className="text-xs font-semibold text-white tracking-wide">
             {isListening ? 'Listening now... Speak your command' : 'Say - "Hey Jarvis"'}
           </span>
         </div>

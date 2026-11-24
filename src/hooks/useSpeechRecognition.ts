@@ -111,7 +111,11 @@ export function useSpeechRecognition({
         recognition.maxAlternatives = 1;
         // ────────────────────────────────────────────────────────────────────
 
+        let retryCount = 0;
+        const MAX_RETRY = 3;
+
         recognition.onstart = () => {
+          retryCount = 0;
           setIsListening(true);
           setError(null);
           console.log('[STT] Started, lang:', langToUse);
@@ -152,8 +156,42 @@ export function useSpeechRecognition({
         };
 
         recognition.onerror = (event: any) => {
+          console.log("[AGNI Voice] Error:", event.error, event);
           const err = event.error as string;
           console.warn('[STT] Error:', err);
+
+          if (err === 'network') {
+            if (retryCount < MAX_RETRY) {
+              retryCount++;
+              console.log(`[AGNI Voice] Network error, retrying ${retryCount}/${MAX_RETRY} in 1s...`);
+              const statusEl = document.getElementById('live-voice-status');
+              if (statusEl) statusEl.textContent = `Network issue, retrying ${retryCount}/${MAX_RETRY}...`;
+              setTimeout(() => {
+                if (isListeningRef.current && recognitionRef.current) {
+                  try { recognitionRef.current.start(); } catch (e) {}
+                }
+              }, 1000);
+              return;
+            } else {
+              console.warn('[AGNI Voice] Max retries reached for network error');
+              const statusEl = document.getElementById('live-voice-status');
+              const fallbackMsg = "Network error - Please check internet, or type manually. Retrying with Groq Whisper...";
+              if (statusEl) statusEl.textContent = fallbackMsg;
+              setError(fallbackMsg);
+              return;
+            }
+          }
+
+          if (err === 'not-allowed' || err === 'permission-denied' || err === 'service-not-allowed') {
+            const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
+            const statusEl = document.getElementById('live-voice-status');
+            if (statusEl) statusEl.textContent = msg;
+            setError(msg);
+            isListeningRef.current = false;
+            setIsListening(false);
+            return;
+          }
+
           // On benign errors, auto-restart
           if (err === 'no-speech' || err === 'audio-capture') {
             setTimeout(() => {
@@ -163,12 +201,9 @@ export function useSpeechRecognition({
             }, 500);
             return;
           }
+
           // Fatal errors
           setError(err);
-          if (err === 'not-allowed' || err === 'permission-denied') {
-            isListeningRef.current = false;
-            setIsListening(false);
-          }
         };
 
         recognition.onend = () => {

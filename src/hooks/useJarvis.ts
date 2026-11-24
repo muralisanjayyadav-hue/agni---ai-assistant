@@ -570,6 +570,9 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     let recognition: any = null;
+    let retryCount = 0;
+    const MAX_RETRY = 3;
+
     if (SpeechRecognition) {
       try {
         recognition = new SpeechRecognition();
@@ -582,8 +585,10 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         // ─────────────────────────────────────────────────────────────────
 
         recognition.onstart = () => {
+          retryCount = 0;
           setIsListening(true);
           setMicPermission('granted');
+          console.log('[Jarvis STT] Started');
         };
 
         recognition.onaudiostart = () => {
@@ -649,13 +654,41 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         };
 
         recognition.onerror = (event: any) => {
+          console.log("[AGNI Voice] Error:", event.error, event);
           console.debug('[Jarvis Recognition Event]', event.error);
-          if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          const err = event.error;
+
+          if (err === 'network') {
+            if (retryCount < MAX_RETRY) {
+              retryCount++;
+              console.log(`[AGNI Voice] Network error, retrying ${retryCount}/${MAX_RETRY} in 1s...`);
+              const statusEl = document.getElementById('live-voice-status');
+              if (statusEl) statusEl.textContent = `Network issue, retrying ${retryCount}/${MAX_RETRY}...`;
+              setTimeout(() => {
+                if (shouldListenRef.current && recognitionRef.current) {
+                  try { recognitionRef.current.start(); } catch (e) {}
+                }
+              }, 1000);
+              return;
+            } else {
+              console.warn('[AGNI Voice] Max retries reached for network error');
+              const statusEl = document.getElementById('live-voice-status');
+              const fallbackMsg = "Network error - Please check internet, or type manually. Retrying with Groq Whisper...";
+              if (statusEl) statusEl.textContent = fallbackMsg;
+              return;
+            }
+          }
+
+          if (err === 'not-allowed' || err === 'permission-denied') {
+            const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
+            const statusEl = document.getElementById('live-voice-status');
+            if (statusEl) statusEl.textContent = msg;
             setMicPermission('denied');
             setIsListening(false);
             shouldListenRef.current = false;
+            return;
           }
-          // On 'network' error (e.g. in Electron where Google Speech isn't bundled):
+          // On other errors (e.g. in Electron where Google Speech isn't bundled):
           // DO NOT stop listening! MediaRecorder + Audio Energy VAD handles transcription!
         };
 
