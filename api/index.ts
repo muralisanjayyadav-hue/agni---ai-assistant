@@ -13,7 +13,7 @@ console.log("[AGNI Startup] Env check - GROQ keys:", Object.keys(process.env).fi
 // ── Super Safe /api/debug Endpoint (First route, never crashes) ─────────────
 app.get(["/api/debug", "/debug"], (_req, res) => {
   try {
-    const rawKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || "";
+    const rawKey = process.env.GROQ_API_KEY || "";
     const cleanKey = rawKey.trim().replace(/"/g, "").trim();
     res.json({
       status: "alive",
@@ -29,7 +29,7 @@ app.get(["/api/debug", "/debug"], (_req, res) => {
 
 // ── Safe /api/health Endpoint ───────────────────────────────────────────────
 app.get(["/api/health", "/health"], (_req, res) => {
-  const rawKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || "";
+  const rawKey = process.env.GROQ_API_KEY || "";
   const cleanKey = rawKey.trim().replace(/"/g, "").trim();
   res.json({
     status: "ok",
@@ -45,8 +45,8 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
   try {
     console.log("[AGNI Chat] Request received:", req.body?.messages?.length || req.body?.message);
 
-    // DIRECT env read - NO groqRotation import!
-    let groqKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || "";
+    // DIRECT env read - ONLY GROQ_API_KEY
+    let groqKey = process.env.GROQ_API_KEY || "";
     groqKey = groqKey.trim().replace(/"/g, "").trim();
 
     console.log(
@@ -109,21 +109,45 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
       ...formattedMessages,
     ];
 
-    console.log("[AGNI Chat] Calling Groq with model llama-3.3-70b-versatile");
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: fullMessages,
-      temperature: 0.7,
-      max_tokens: 1024,
-    });
+    // Priority model: llama-3.1-8b-instant (Always exists, fastest, free tier) with resilient fallbacks
+    const modelsToTry = [
+      "llama-3.1-8b-instant",
+      "llama-3.1-70b-versatile",
+      "llama3-8b-8192",
+      "gemma2-9b-it",
+    ];
 
-    const reply = completion.choices[0]?.message?.content || "Hii! How can I help you today?";
+    let reply = "";
+    let lastError: any = null;
+
+    for (const model of modelsToTry) {
+      try {
+        console.log("[AGNI Chat] Calling Groq with model:", model);
+        const completion = await groq.chat.completions.create({
+          model,
+          messages: fullMessages,
+          temperature: 0.7,
+          max_tokens: 1024,
+        });
+        reply = completion.choices[0]?.message?.content || "";
+        if (reply) break;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[AGNI Chat] Model ${model} notice: ${err?.message}. Trying fallback...`);
+      }
+    }
+
+    if (!reply && lastError) {
+      throw lastError;
+    }
+
+    reply = reply || "Hii! How can I help you today?";
     console.log("[AGNI Chat] Groq success, reply length:", reply.length);
     return res.json({ reply: reply, text: reply });
   } catch (error: any) {
     console.error("[AGNI Chat ERROR] Full error:", error?.stack || error?.message, error?.status);
     const envList = Object.keys(process.env).filter((k) => k.includes("GROQ")).join(",") || "NONE";
-    const errReply = `AGNI Groq Error: ${error?.message || error} (Status: ${error?.status || "unknown"}). Keys in Vercel: ${envList}. If 401 -> Your gsk_ key invalid, create new at console.groq.com. If 400 model_decommissioned -> Code needs model update to llama-3.3-70b-versatile. Check Vercel Logs for details.`;
+    const errReply = `AGNI Groq Error: ${error?.message || error} (Status: ${error?.status || "unknown"}). Keys in Vercel: ${envList}. If 401 -> Your gsk_ key invalid, create new at console.groq.com. If 404 model_not_found -> Model updated to llama-3.1-8b-instant. Check Vercel Logs for details.`;
     return res.status(200).json({
       reply: errReply,
       text: errReply,

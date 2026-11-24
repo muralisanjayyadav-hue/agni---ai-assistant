@@ -120,12 +120,13 @@ async function generateWithGroq(
   messages: Array<{ role: string; text: string }>
 ): Promise<{ text: string } | null> {
   const groqModels = [
+    "llama-3.1-8b-instant",
+    "llama-3.1-70b-versatile",
+    "llama3-8b-8192",
+    "gemma2-9b-it",
     "openai/gpt-oss-120b",
     "qwen/qwen3-32b",
     "qwen/qwen3.8-27b",
-    "openai/gpt-oss-20b",
-    "llama-3.1-8b-instant",
-    "llama-3.3-70b-versatile",
   ];
 
   const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
