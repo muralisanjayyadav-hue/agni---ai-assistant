@@ -25,6 +25,8 @@ const groqAudit = auditGroqKeys();
 const activeGroqKeys = getGroqKeys();
 if (!hasAnyGroqKey()) {
   console.warn("[AGNI BUG FINDER] GROQ_API_KEY missing - AGNI will show friendly setup message.");
+} else if (activeGroqKeys.length === 1) {
+  console.log("🔥 [AGNI Server] 1 Groq API Key active in Single Key Mode (GROQ_API_KEY).");
 } else {
   console.log(`🔥 [AGNI Server] ${activeGroqKeys.length}/9 Groq API Key(s) active in Circle Rotation (1->2->3...->9->1).`);
 }
