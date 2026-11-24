@@ -4,15 +4,16 @@ import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import Groq from "groq-sdk";
+import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, getGroqKeys } from "./src/lib/groqRotation";
 
 dotenv.config();
-if (!process.env.GROQ_API_KEY) {
+if (!hasAnyGroqKey()) {
   dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 }
-if (!process.env.GROQ_API_KEY) {
+if (!hasAnyGroqKey()) {
   dotenv.config({ path: path.resolve(__dirname, ".env") });
 }
-if (!process.env.GROQ_API_KEY) {
+if (!hasAnyGroqKey()) {
   dotenv.config({ path: path.resolve(__dirname, "../.env") });
 }
 
@@ -20,10 +21,11 @@ const app = express();
 const PORT = 3000;
 
 // ── Startup env check ──────────────────────────────────────────────────────
-if (!process.env.GROQ_API_KEY) {
+const activeGroqKeys = getGroqKeys();
+if (!hasAnyGroqKey()) {
   console.warn("⚠️  GROQ_API_KEY missing - AGNI will show a friendly setup message instead of crashing.");
 } else {
-  console.log("🔥 [AGNI Server] GROQ_API_KEY loaded successfully. Groq AI Brain is active.");
+  console.log(`🔥 [AGNI Server] ${activeGroqKeys.length} Groq API Key(s) loaded. Circle rotation active (1->2->3...->9->1).`);
 }
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -97,24 +99,9 @@ function getAgniNeuralClient(): GoogleGenAI | null {
   }
 }
 
-// Lazy Groq client helper (fast free AI backbone)
-function getGroqClient(): Groq | null {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.trim() === "" || apiKey === "YOUR_GROQ_API_KEY") {
-    return null;
-  }
-  try {
-    return new Groq({ apiKey: apiKey.trim() });
-  } catch (err) {
-    console.warn("[AGNI Server] Error initializing Groq client:", err);
-    return null;
-  }
-}
-
 // Check if any real AI Brain API key is configured
 function hasAnyAiKey(): boolean {
-  const groqKey = process.env.GROQ_API_KEY;
-  if (groqKey && groqKey.trim() !== "" && groqKey !== "YOUR_GROQ_API_KEY") return true;
+  if (hasAnyGroqKey()) return true;
   const agniKey = process.env.AGNI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (agniKey && agniKey.trim() !== "" && agniKey !== "MY_AGNI_API_KEY" && agniKey !== "MY_GEMINI_API_KEY") return true;
   return false;
@@ -161,6 +148,10 @@ async function generateWithGroq(
     } catch (err: any) {
       const errMsg = err?.message || String(err);
       console.warn(`[AGNI Groq] Model "${model}" error:`, errMsg.slice(0, 120));
+      if (errMsg.includes("429") || errMsg.includes("rate limit") || errMsg.includes("quota")) {
+        // Skip to next key in circle on 429
+        groq = getGroqClient() || groq;
+      }
       // Try next model
       continue;
     }
@@ -467,7 +458,7 @@ app.get(["/api/health", "/health"], (req, res) => {
     app: "AGNI",
     slogan: "Made in India, To Serve the World",
     hasApiKey: !!(process.env.AGNI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY),
-    hasGroqKey: !!process.env.GROQ_API_KEY,
+    hasGroqKey: hasAnyGroqKey(),
     activeModel: "AGNI Neural Core v3.8",
   });
 });

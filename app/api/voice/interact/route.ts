@@ -1,3 +1,5 @@
+import { getNextKeyInCircle, hasAnyGroqKey, skipToNextKey } from '../../../../src/lib/groqRotation';
+
 const GROQ_MODELS = [
   'openai/gpt-oss-120b',
   'qwen/qwen3-32b',
@@ -8,10 +10,10 @@ const GROQ_MODELS = [
 ];
 
 export async function POST(req: Request) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
+  if (!hasAnyGroqKey()) {
     return Response.json({ error: 'GROQ_API_KEY missing or invalid - check Vercel' }, { status: 500 });
   }
+  let apiKey = getNextKeyInCircle();
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -59,6 +61,9 @@ For jokes: tell funny jokes. For math: give the step/answer clearly. Call user "
           return Response.json({ spokenReply: content, reply: content, text: content, role: 'assistant' });
         }
         lastError = data.error || { message: `HTTP ${res.status}` };
+        if (res.status === 429 || String(lastError?.message || '').toLowerCase().includes('rate limit')) {
+          apiKey = skipToNextKey();
+        }
       } catch (err: any) {
         lastError = err;
       }

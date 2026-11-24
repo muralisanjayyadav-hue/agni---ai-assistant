@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import type { Request, Response } from 'express';
 import Groq from 'groq-sdk';
+import { executeWithGroqRotation, hasAnyGroqKey } from '../src/lib/groqRotation';
 
 export default async function handler(req: Request, res: Response) {
   // CORS
@@ -17,8 +18,7 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
+    if (!hasAnyGroqKey()) {
       console.warn('[Groq Whisper] GROQ_API_KEY not configured on server');
       return res.status(200).json({ text: '', error: 'GROQ_API_KEY missing on server' });
     }
@@ -45,16 +45,17 @@ export default async function handler(req: Request, res: Response) {
       : 'webm';
 
     const file = await Groq.toFile(buffer, `audio.${ext}`, { type: mimeType });
-    const groq = new Groq({ apiKey });
 
-    const transcription = await groq.audio.transcriptions.create({
-      file,
-      model: 'whisper-large-v3',
-      language: language && language !== 'auto' && language.length <= 3 ? language : undefined,
-      response_format: 'json',
+    const text = await executeWithGroqRotation(async (_apiKey, groq) => {
+      const transcription = await groq.audio.transcriptions.create({
+        file,
+        model: 'whisper-large-v3',
+        language: language && language !== 'auto' && language.length <= 3 ? language : undefined,
+        response_format: 'json',
+      });
+      return (transcription.text || '').trim();
     });
 
-    const text = (transcription.text || '').trim();
     return res.status(200).json({ text, transcription: text });
   } catch (err: any) {
     console.error('[Groq Whisper Error]', err?.message || err);

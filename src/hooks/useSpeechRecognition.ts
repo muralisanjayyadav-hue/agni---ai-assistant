@@ -95,6 +95,17 @@ export function useSpeechRecognition({
           if (setQuery) setQuery(text);
           if (setInput) setInput(text);
 
+          // Direct DOM live typing into bottom input box across Home Hub & Jarvis
+          try {
+            const targetInputs = document.querySelectorAll<HTMLInputElement>(
+              '#jarvis-type-input, #home-message-input, #mini-voice-box-text-input, input[placeholder*="speak"], input[placeholder*="Type"]'
+            );
+            targetInputs.forEach((el) => {
+              el.value = text;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+          } catch {}
+
           if (finalTranscript && onFinalTranscript) {
             onFinalTranscript(finalTranscript);
           }

@@ -11,6 +11,7 @@ import type { Request, Response } from 'express';
 import Groq from 'groq-sdk';
 import fs from 'fs';
 import path from 'path';
+import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, skipToNextKey } from '../src/lib/groqRotation';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface UserRecord {
@@ -776,11 +777,10 @@ function isAuthorizedFounder(req: Request): boolean {
 function getGroq(): Groq | null {
   const db = getDb();
   const customKey = db.remote_config?.groqApiKey?.trim();
-  const envKey = process.env.GROQ_API_KEY?.trim();
-  const key = (customKey && customKey !== '' && !customKey.includes('•')) ? customKey : envKey;
-
-  if (!key || key === '' || key === 'YOUR_GROQ_API_KEY') return null;
-  try { return new Groq({ apiKey: key }); } catch { return null; }
+  if (customKey && customKey !== '' && !customKey.includes('•')) {
+    try { return new Groq({ apiKey: customKey }); } catch { return null; }
+  }
+  return getGroqClient();
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are AGNI, an advanced personal AI and JARVIS assistant proudly Made in India 🇮🇳.
@@ -828,7 +828,7 @@ app.get(['/api/health', '/health'], async (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     agni: 'LIVE',
-    hasGroqKey: !!process.env.GROQ_API_KEY,
+    hasGroqKey: hasAnyGroqKey(),
     availableModels,
     founders: ['M. Sanjay'],
     timestamp: new Date().toISOString(),

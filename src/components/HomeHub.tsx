@@ -153,6 +153,16 @@ export const HomeHub: React.FC<HomeHubProps> = ({
         console.log("Transcript:", text);
         // UPDATE BOTH STATES - THIS IS THE FIX:
         if (setInputText) setInputText(text);
+
+        try {
+          const targetInputs = document.querySelectorAll<HTMLInputElement>(
+            '#home-message-input, #jarvis-type-input, input[placeholder*="speak"], input[placeholder*="Type"]'
+          );
+          targetInputs.forEach((el) => {
+            el.value = text;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+        } catch {}
       };
 
       recognition.onerror = (event: any) => {
@@ -542,6 +552,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
           >
             <input
               type="text"
+              id="home-message-input"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder={`Type or tap orb to speak in ${currentLang?.label || 'English'}...`}

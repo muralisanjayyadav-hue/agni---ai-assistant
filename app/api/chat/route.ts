@@ -1,3 +1,5 @@
+import { getNextKeyInCircle, hasAnyGroqKey, skipToNextKey } from '../../../src/lib/groqRotation';
+
 const DEFAULT_SYSTEM_PROMPT = `You are AGNI, Made in India AI. Answer ANY question in user language. No fixed answers.
 Conceived & Founded by M. Sanjay & T. Hasini.
 Speak in English by default. If the user speaks Tamil, reply in Tamil + English mix (Tanglish).
@@ -101,10 +103,10 @@ async function fetchFromFirestore(): Promise<CoreSyncDoc[]> {
 }
 
 export async function POST(req: Request) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
+  if (!hasAnyGroqKey()) {
     return Response.json({ error: 'GROQ_API_KEY missing or invalid - check Vercel' }, { status: 500 });
   }
+  let apiKey = getNextKeyInCircle();
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -324,6 +326,9 @@ Made in India, To Serve the World. 🇮🇳`;
           });
 
           const data = await groqRes.json();
+          if (groqRes.status === 429) {
+            apiKey = skipToNextKey();
+          }
           if (groqRes.ok && data.choices?.[0]?.message?.content) {
             const content = data.choices[0].message.content.trim();
             if (content) {
@@ -385,6 +390,9 @@ Made in India, To Serve the World. 🇮🇳`;
           }
         }
         lastError = data.error || { message: `HTTP ${groqRes.status}` };
+        if (groqRes.status === 429 || String(lastError?.message || '').toLowerCase().includes('rate limit')) {
+          apiKey = skipToNextKey();
+        }
       } catch (err: any) {
         lastError = err;
       }

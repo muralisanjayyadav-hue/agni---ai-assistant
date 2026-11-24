@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import type { Request, Response } from 'express';
 import Groq from 'groq-sdk';
+import { getNextKeyInCircle, getGroqClient, hasAnyGroqKey, skipToNextKey } from '../src/lib/groqRotation';
 
 const DEFAULT_SYSTEM_PROMPT = `You are AGNI, an advanced personal AI and JARVIS assistant proudly Made in India 🇮🇳.
 CRITICAL IDENTITY & FOUNDER INSTRUCTIONS:
@@ -112,10 +113,10 @@ export default async function handler(req: Request, res: Response) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-User-Email, X-Founder-Secret');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey.trim() === '' || apiKey === 'YOUR_GROQ_API_KEY') {
+  if (!hasAnyGroqKey()) {
     return res.status(500).json({ error: 'GROQ_API_KEY missing or invalid - check Vercel' });
   }
+  let apiKey = getNextKeyInCircle();
 
   const body = req.body || {};
   const reqEmail = (
@@ -187,7 +188,7 @@ export default async function handler(req: Request, res: Response) {
     Boolean(body.systemPrompt?.includes('JARVIS'));
 
   if (isJarvis) {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || apiKey.trim() });
+    let groq = getGroqClient(apiKey) || new Groq({ apiKey });
     const jarvisPrompt =
       'You are AGNI, real Jarvis created and founded by M. Sanjay (Founder M. Sanjay). You can DO things. If asked who is your founder or who created you, your creator and founder is M. Sanjay. If user gives command, respond JSON: { say: full sentence, action: { type: open_url, url: https://... } }. You decide URL yourself. If user says open instagram -> https://instagram.com, search cats -> https://google.com/search?q=cats. If no action just { say: ... }';
 
@@ -240,6 +241,10 @@ export default async function handler(req: Request, res: Response) {
       } catch (err: any) {
         lastGroqError = err;
         console.debug(`[Groq Jarvis ${model} notice]`, err?.message || err);
+        if (String(err?.message || '').includes('429') || String(err?.message || '').includes('rate limit')) {
+          apiKey = skipToNextKey();
+          groq = getGroqClient(apiKey) || groq;
+        }
         continue;
       }
     }
@@ -457,6 +462,9 @@ Made in India, To Serve the World. 🇮🇳`;
         });
 
         const data = await groqRes.json();
+        if (groqRes.status === 429) {
+          apiKey = skipToNextKey();
+        }
         if (groqRes.ok && data.choices?.[0]?.message?.content) {
           const content = data.choices[0].message.content.trim();
           if (content) {
@@ -498,6 +506,9 @@ Made in India, To Serve the World. 🇮🇳`;
       const data = await groqRes.json();
       if (!groqRes.ok || data.error) {
         lastError = data.error || { message: `HTTP ${groqRes.status}` };
+        if (groqRes.status === 429 || String(lastError?.message || '').toLowerCase().includes('rate limit')) {
+          apiKey = skipToNextKey();
+        }
         continue;
       }
 

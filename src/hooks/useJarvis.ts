@@ -517,6 +517,16 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
           console.log("Transcript:", text);
           setYouSaid(text);
 
+          try {
+            const targetInputs = document.querySelectorAll<HTMLInputElement>(
+              '#jarvis-type-input, #home-message-input, #mini-voice-box-text-input, input[placeholder*="speak"], input[placeholder*="Type"]'
+            );
+            targetInputs.forEach((el) => {
+              el.value = text;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+          } catch {}
+
           if (finalTranscript) {
             speechDetectedRef.current = false;
             setIsListening(false);

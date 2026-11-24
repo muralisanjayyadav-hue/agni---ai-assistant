@@ -468,6 +468,16 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
             if (setTranscript) setTranscript(text);
             transcriptRef.current = text;
 
+            try {
+              const targetInputs = document.querySelectorAll<HTMLInputElement>(
+                '#mini-voice-box-text-input, #home-message-input, #jarvis-type-input, input[placeholder*="speak"], input[placeholder*="Type"]'
+              );
+              targetInputs.forEach((el) => {
+                el.value = text;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+              });
+            } catch {}
+
             if (finalTranscript) {
               transcriptRef.current = finalTranscript;
               setTypedInput(finalTranscript);
