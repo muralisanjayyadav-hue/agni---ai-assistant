@@ -21,14 +21,17 @@ const app = express();
 const PORT = 3000;
 
 // ── Startup env check & Master Audit ───────────────────────────────────────
-const groqAudit = auditGroqKeys();
-const activeGroqKeys = getGroqKeys();
-if (!hasAnyGroqKey()) {
-  console.warn("[AGNI BUG FINDER] GROQ_API_KEY missing - AGNI will show friendly setup message.");
-} else if (activeGroqKeys.length === 1) {
-  console.log("🔥 [AGNI Server] 1 Groq API Key active in Single Key Mode (GROQ_API_KEY).");
-} else {
-  console.log(`🔥 [AGNI Server] ${activeGroqKeys.length}/9 Groq API Key(s) active in Circle Rotation (1->2->3...->9->1).`);
+try {
+  const activeGroqKeys = getGroqKeys();
+  if (activeGroqKeys.length === 0) {
+    console.warn("[AGNI BUG FINDER] GROQ_API_KEY missing - AGNI will show friendly setup message.");
+  } else if (activeGroqKeys.length === 1) {
+    console.log("🔥 [AGNI Server] 1 Groq API Key active in Single Key Mode (GROQ_API_KEY).");
+  } else {
+    console.log(`🔥 [AGNI Server] ${activeGroqKeys.length}/9 Groq API Key(s) active in Circle Rotation (1->2->3...->9->1).`);
+  }
+} catch (e) {
+  console.warn("[AGNI Server] Startup Groq notice:", e);
 }
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -465,6 +468,26 @@ app.get(["/api/health", "/health"], (req, res) => {
     hasGroqKey: hasAnyGroqKey(),
     activeModel: "AGNI Neural Core v3.8",
   });
+});
+
+// Safe Crash-Proof Debug Endpoint
+app.get(["/api/debug", "/debug"], (_req, res) => {
+  try {
+    const keys = getGroqKeys();
+    res.json({
+      status: "alive",
+      groqKeysCount: keys.length,
+      envKeys: Object.keys(process.env).filter((k) => k.includes("GROQ")),
+      time: new Date().toISOString(),
+      commit: "fix-function-crash",
+    });
+  } catch (e: any) {
+    res.json({
+      status: "debug_crashed",
+      error: e?.message || String(e),
+      envKeys: Object.keys(process.env).filter((k) => k.includes("GROQ")),
+    });
+  }
 });
 
 // AGNI Self-Diagnostics & Bug Finder Telemetry Endpoint

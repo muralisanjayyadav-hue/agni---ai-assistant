@@ -113,10 +113,19 @@ export default async function handler(req: Request, res: Response) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-User-Email, X-Founder-Secret');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (!hasAnyGroqKey()) {
-    return res.status(500).json({ error: 'GROQ_API_KEY missing or invalid - check Vercel' });
-  }
-  let apiKey = getNextKeyInCircle();
+  try {
+    const keys = getGroqKeys();
+    if (keys.length === 0) {
+      const groqEnvKeys = Object.keys(process.env).filter((k) => k.includes('GROQ')).join(',');
+      const debugMsg = `AGNI Debug: No GROQ_API_KEY in Vercel env. Go Settings -> Env Variables -> Add GROQ_API_KEY with gsk_ key. Env found: ${groqEnvKeys || 'none'}`;
+      return res.status(200).json({
+        text: debugMsg,
+        reply: debugMsg,
+        role: 'assistant',
+        content: debugMsg,
+      });
+    }
+    let apiKey = getNextKeyInCircle();
 
   const body = req.body || {};
   const reqEmail = (
@@ -540,6 +549,19 @@ Made in India, To Serve the World. 🇮🇳`;
     }
   }
 
-  console.error('[AGNI BUG FINDER] Chat completion failure:', lastError);
-  return res.status(500).json({ error: lastError?.message || 'GROQ_API_KEY missing or invalid - check Vercel' });
+    console.error('[AGNI BUG FINDER] Chat completion notice:', lastError);
+    return res.status(200).json({
+      text: `AGNI Server Error: ${lastError?.message || 'Check Vercel Logs'}`,
+      reply: `AGNI Server Error: ${lastError?.message || 'Check Vercel Logs'}`,
+      error: lastError?.message || 'GROQ_API_KEY missing or invalid - check Vercel',
+      isError: true,
+    });
+  } catch (fatalErr: any) {
+    console.error('[AGNI FATAL]', fatalErr?.stack || fatalErr);
+    return res.status(200).json({
+      text: `AGNI Server Error: ${fatalErr?.message || fatalErr} - Check Vercel Logs`,
+      reply: `AGNI Server Error: ${fatalErr?.message || fatalErr} - Check Vercel Logs`,
+      isError: true,
+    });
+  }
 }

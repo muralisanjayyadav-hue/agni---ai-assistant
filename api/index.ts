@@ -814,6 +814,26 @@ const GROQ_VISION_MODELS = [
 
 // ── Public Routes ──────────────────────────────────────────────────────────
 
+// Safe Crash-Proof Debug Endpoint
+app.get(['/api/debug', '/debug'], (_req: Request, res: Response) => {
+  try {
+    const keys = getGroqKeys();
+    res.json({
+      status: 'alive',
+      groqKeysCount: keys.length,
+      envKeys: Object.keys(process.env).filter((k) => k.includes('GROQ')),
+      time: new Date().toISOString(),
+      commit: 'fix-function-crash',
+    });
+  } catch (e: any) {
+    res.json({
+      status: 'debug_crashed',
+      error: e?.message || String(e),
+      envKeys: Object.keys(process.env).filter((k) => k.includes('GROQ')),
+    });
+  }
+});
+
 app.get(['/api/health', '/health'], async (_req: Request, res: Response) => {
   const groq = getGroq();
   let availableModels: string[] = [];
@@ -960,9 +980,23 @@ app.post(['/api/chat', '/chat', '/api/agni'], async (req: Request, res: Response
       });
     }
 
-    const groq = getGroq();
-    if (!groq) {
-      return res.status(500).json({ error: 'GROQ_API_KEY missing or invalid - check Vercel' });
+    const keys = getGroqKeys();
+    if (keys.length === 0) {
+      const envKeysFound = Object.keys(process.env).filter((k) => k.includes('GROQ')).join(',');
+      const debugMsg = `AGNI Debug: No GROQ_API_KEY in Vercel env. Go Settings -> Env Variables -> Add GROQ_API_KEY with gsk_ key. Env found: ${envKeysFound || 'none'}`;
+      return res.status(200).json({
+        text: debugMsg,
+        reply: debugMsg,
+        role: 'assistant',
+        content: debugMsg,
+      });
+    }
+
+    let groq: Groq;
+    try {
+      groq = new Groq({ apiKey: getNextKeyInCircle() });
+    } catch {
+      groq = new Groq({ apiKey: keys[0] });
     }
 
     const { messages, message, memories, userPreferences } = req.body;
@@ -1401,8 +1435,12 @@ Made in India, To Serve the World. 🇮🇳`;
       model: modelUsed,
     });
   } catch (err: any) {
-    console.error('[AGNI BUG FINDER] [AGNI CHAT ERROR]', err);
-    return res.status(500).json({ error: err?.message || 'GROQ_API_KEY missing or invalid - check Vercel' });
+    console.error("[AGNI FATAL]", err?.stack || err);
+    return res.status(200).json({
+      text: `AGNI Server Error: ${err?.message || err} - Check Vercel Logs`,
+      reply: `AGNI Server Error: ${err?.message || err} - Check Vercel Logs`,
+      isError: true,
+    });
   }
 });
 
@@ -1480,9 +1518,23 @@ app.post('/api/search', async (req: Request, res: Response) => {
 
 app.post(['/api/heart', '/heart'], async (req: Request, res: Response) => {
   try {
-    const groq = getGroq();
-    if (!groq) {
-      return res.status(500).json({ error: 'GROQ_API_KEY missing or invalid - check Vercel' });
+    const keys = getGroqKeys();
+    if (keys.length === 0) {
+      const envKeysFound = Object.keys(process.env).filter((k) => k.includes('GROQ')).join(',');
+      const debugMsg = `AGNI Debug: No GROQ_API_KEY in Vercel env. Go Settings -> Env Variables -> Add GROQ_API_KEY with gsk_ key. Env found: ${envKeysFound || 'none'}`;
+      return res.status(200).json({
+        text: debugMsg,
+        reply: debugMsg,
+        role: 'assistant',
+        content: debugMsg,
+      });
+    }
+
+    let groq: Groq;
+    try {
+      groq = new Groq({ apiKey: getNextKeyInCircle() });
+    } catch {
+      groq = new Groq({ apiKey: keys[0] });
     }
 
     const { messages, message, authUser } = req.body;
@@ -1536,9 +1588,23 @@ Rules:
 
 app.post(['/api/voice/interact', '/voice/interact'], async (req: Request, res: Response) => {
   try {
-    const groq = getGroq();
-    if (!groq) {
-      return res.status(500).json({ error: 'GROQ_API_KEY missing or invalid - check Vercel' });
+    const keys = getGroqKeys();
+    if (keys.length === 0) {
+      const envKeysFound = Object.keys(process.env).filter((k) => k.includes('GROQ')).join(',');
+      const debugMsg = `AGNI Debug: No GROQ_API_KEY in Vercel env. Go Settings -> Env Variables -> Add GROQ_API_KEY with gsk_ key. Env found: ${envKeysFound || 'none'}`;
+      return res.status(200).json({
+        text: debugMsg,
+        reply: debugMsg,
+        role: 'assistant',
+        content: debugMsg,
+      });
+    }
+
+    let groq: Groq;
+    try {
+      groq = new Groq({ apiKey: getNextKeyInCircle() });
+    } catch {
+      groq = new Groq({ apiKey: keys[0] });
     }
 
     const { message, userName, history: rawHistory } = req.body;
