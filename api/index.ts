@@ -40,10 +40,11 @@ app.get(["/api/health", "/health"], (_req, res) => {
   });
 });
 
-// ── Super Safe /api/chat Endpoint (Lazy Groq import inside handler) ─────────
-app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
+// ── Super Safe /api/chat & /api/heart Endpoint (Lazy Groq import inside handler) ──
+app.post(["/api/chat", "/chat", "/api/agni", "/api/heart", "/heart"], async (req, res) => {
   try {
-    console.log("[AGNI Chat] Request received:", req.body?.messages?.length || req.body?.message);
+    const isHeartCare = Boolean(req.body?.isHeartCare) || req.path.includes("heart");
+    console.log("[AGNI Chat] Request received:", { msgs: req.body?.messages?.length || req.body?.message, isHeartCare, path: req.path });
 
     // DIRECT env read - ONLY GROQ_API_KEY
     let groqKey = process.env.GROQ_API_KEY || "";
@@ -102,7 +103,7 @@ app.post(["/api/chat", "/chat", "/api/agni"], async (req, res) => {
       return res.json({ reply: founderReply, text: founderReply });
     }
 
-    const systemPrompt = `You are AGNI, friendly AI like ChatGPT, proudly Made in India. Conceived and founded by M. Sanjay.
+    const regularSystemPrompt = `You are AGNI, friendly AI like ChatGPT, proudly Made in India. Conceived and founded by M. Sanjay.
 
 ALWAYS format answers like this:
 1. Use headings with emojis: e.g. "## Human Organs – A Complete Explanation 💓"
@@ -122,6 +123,23 @@ ALWAYS format answers like this:
 8. End with diagram section: "## How Do Organs Work Together? 🔄" and explain how organ systems cooperate.
 9. Simple English, like explaining to 10th class student.
 10. Use markdown: ## for headings, ** for bold, • or - for bullets. Always be helpful, kind, and concise.`;
+
+    const heartCareSystemPrompt = `You are AGNI Heart & Mind Care (💖), a deeply empathetic, warm, human-like emotional support companion created by M. Sanjay ("Made in India, To Serve the World").
+
+CRITICAL RULES:
+- NEVER give generic, repetitive, or canned responses like "I am here with you. Take your time."
+- ALWAYS read the user's EXACT words and respond directly to their specific situation:
+  * If they mention overthinking, self-doubt, or painful memories: speak directly to quieting a racing mind, soothing self-criticism, and gently grounding themselves.
+  * If they mention a breakup or loneliness: validate the ache of heartbreak and isolation without clichés, and remind them they aren't alone.
+  * If they mention exam stress or anxiety: address academic pressure specifically, help break the overwhelm into small calm steps, and reassure them.
+- Sound like a caring, wise, trustworthy close friend sitting beside them — warm, natural, gentle, and deeply attentive.
+- Structure your response softly:
+  1. Acknowledge & validate their exact feelings with genuine warmth.
+  2. Offer 1-2 comforting perspectives or gentle grounding practices tailored to what they just shared.
+  3. End with one gentle, open question inviting them to share more if they want.
+- Use clean Markdown and gentle emojis (💙 🫂 🌿 ✨) naturally.`;
+
+    const systemPrompt = isHeartCare ? heartCareSystemPrompt : regularSystemPrompt;
     const fullMessages = [
       { role: "system" as const, content: systemPrompt },
       ...formattedMessages,

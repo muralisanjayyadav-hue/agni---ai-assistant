@@ -885,7 +885,7 @@ export default function App() {
         }),
       });
 
-      const heartReply = data.text || data.reply || 'I am here with you. Take your time. Ã°Å¸â€™â„¢';
+      const heartReply = data.text || data.reply || 'I hear you, and I am right here with you. Could you tell me a little more about what is weighing on your mind right now? 💙';
       const modelMsg: ChatMessage = {
         id: `heart-m-${Date.now()}`,
         role: 'model',

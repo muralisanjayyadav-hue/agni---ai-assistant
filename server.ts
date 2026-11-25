@@ -634,8 +634,8 @@ function getFounderAnswerIfApplicable(query: string): string | null {
   return null;
 }
 
-// 1. General Chat Endpoint with Persona & Memory
-app.post(["/api/chat", "/chat"], async (req, res) => {
+// 1. General Chat & Heart Care Endpoint with Persona & Memory
+app.post(["/api/chat", "/chat", "/api/heart", "/heart"], async (req, res) => {
   try {
     const clientIp = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "global-client").split(",")[0].trim();
     
@@ -649,7 +649,7 @@ app.post(["/api/chat", "/chat"], async (req, res) => {
     }
 
     const { messages, userPreferences, memories, authUser, isHeartCare } = req.body;
-    const isHeartCareMode = isHeartCare === true || req.body.mode === 'heart_care';
+    const isHeartCareMode = isHeartCare === true || req.body.mode === 'heart_care' || req.path.includes('heart');
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: "Messages array is required." });
