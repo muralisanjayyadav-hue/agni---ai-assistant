@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="skinBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1917" />
+      <stop offset="100%" stop-color="#0c0a09" />
+    </linearGradient>
+    <linearGradient id="epidermis" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fdba74" />
+      <stop offset="100%" stop-color="#fb923c" />
+    </linearGradient>
+    <linearGradient id="dermis" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f472b6" />
+      <stop offset="100%" stop-color="#db2777" />
+    </linearGradient>
+    <linearGradient id="hypodermis" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#eab308" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="24" fill="url(#skinBg)" />
+  <!-- Hair Follicle projecting up -->
+  <path d="M98 140 Q105 85 130 18" stroke="#78350f" stroke-width="4.5" fill="none" stroke-linecap="round" />
+  <path d="M55 140 Q62 85 80 24" stroke="#78350f" stroke-width="3" fill="none" stroke-linecap="round" />
+  <!-- Layer 1: Epidermis (Top) -->
+  <path d="M20 70 Q55 64 100 70 Q145 76 180 70 L180 92 Q145 96 100 92 Q55 88 20 92 Z" fill="url(#epidermis)" />
+  <!-- Layer 2: Dermis (Middle Pink) -->
+  <path d="M20 92 Q55 88 100 92 Q145 96 180 92 L180 148 Q145 152 100 148 Q55 144 20 148 Z" fill="url(#dermis)" />
+  <!-- Layer 3: Hypodermis / Subcutaneous Fat (Yellow cells) -->
+  <path d="M20 148 Q55 144 100 148 Q145 152 180 148 L180 182 L20 182 Z" fill="url(#hypodermis)" />
+  <!-- Fat cells (Lipid bubbles) -->
+  <circle cx="36" cy="165" r="7" fill="#facc15" stroke="#ca8a04" stroke-width="1.5" />
+  <circle cx="56" cy="165" r="8" fill="#facc15" stroke="#ca8a04" stroke-width="1.5" />
+  <circle cx="78" cy="165" r="7.5" fill="#facc15" stroke="#ca8a04" stroke-width="1.5" />
+  <circle cx="100" cy="165" r="8.5" fill="#facc15" stroke="#ca8a04" stroke-width="1.5" />
+  <circle cx="122" cy="165" r="7" fill="#facc15" stroke="#ca8a04" stroke-width="1.5" />
+  <circle cx="144" cy="165" r="8" fill="#facc15" stroke="#ca8a04" stroke-width="1.5" />
+  <circle cx="164" cy="165" r="7.5" fill="#facc15" stroke="#ca8a04" stroke-width="1.5" />
+  <!-- Hair root bulb & sebaceous gland -->
+  <ellipse cx="98" cy="140" rx="7" ry="10" fill="#92400e" />
+  <circle cx="106" cy="115" r="5" fill="#fde047" stroke="#ca8a04" stroke-width="1" />
+  <!-- Blood vessels in dermis (Artery & Vein) -->
+  <path d="M125 150 Q135 125 155 110" stroke="#ef4444" stroke-width="2.2" fill="none" stroke-linecap="round" />
+  <path d="M130 150 Q140 125 160 110" stroke="#38bdf8" stroke-width="2.2" fill="none" stroke-linecap="round" />
+  <!-- Sweat gland pore & duct -->
+  <path d="M40 70 L40 120 Q35 130 45 135 Q50 142 40 145" stroke="#38bdf8" stroke-width="1.8" fill="none" />
+</svg>

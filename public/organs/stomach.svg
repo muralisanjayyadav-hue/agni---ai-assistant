@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="stomachBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d131a" />
+      <stop offset="100%" stop-color="#14060b" />
+    </linearGradient>
+    <linearGradient id="stomachGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="50%" stop-color="#f43f5e" />
+      <stop offset="100%" stop-color="#be123c" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="24" fill="url(#stomachBg)" />
+  <!-- Esophagus entry -->
+  <path d="M78 22 L78 58 L94 58 L94 22 Z" fill="#fda4af" rx="4" />
+  <!-- J-Shaped Stomach Body -->
+  <path d="M82 55 C70 55, 45 68, 42 102 C38 138, 62 172, 105 174 C140 176, 168 152, 165 125 C162 108, 148 102, 134 112 C122 122, 106 122, 98 105 C92 90, 96 70, 92 55 Z" fill="url(#stomachGrad)" />
+  <!-- Duodenum exit (Small intestine entry) -->
+  <path d="M164 125 C172 132, 175 145, 170 158 L156 154 C158 145, 155 138, 150 135 Z" fill="#fdba74" />
+  <!-- Gastric Rugae (internal folds) -->
+  <path d="M62 90 Q75 110 70 135" stroke="#ffe4e6" stroke-width="2.2" fill="none" stroke-linecap="round" />
+  <path d="M80 98 Q92 120 88 150" stroke="#ffe4e6" stroke-width="2.2" fill="none" stroke-linecap="round" />
+  <path d="M98 115 Q115 135 120 152" stroke="#ffe4e6" stroke-width="2.2" fill="none" stroke-linecap="round" />
+  <!-- Stomach shine highlight -->
+  <path d="M54 85 C50 110, 60 145, 88 162" stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.4" />
+</svg>

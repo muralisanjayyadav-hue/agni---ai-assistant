@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1026" />
+      <stop offset="100%" stop-color="#0c0714" />
+    </linearGradient>
+    <linearGradient id="brainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f472b6" />
+      <stop offset="50%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#be185d" />
+    </linearGradient>
+    <linearGradient id="stemGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fb7185" />
+      <stop offset="100%" stop-color="#e11d48" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect width="200" height="200" rx="24" fill="url(#bgGrad)" />
+  <!-- Brain stem -->
+  <path d="M96 142 C96 160, 102 178, 104 185 C106 185, 112 185, 114 185 C116 178, 120 160, 118 142 Z" fill="url(#stemGrad)" />
+  <!-- Cerebellum -->
+  <path d="M110 125 C132 125, 150 135, 148 152 C146 165, 128 168, 112 165 C102 163, 100 148, 110 125 Z" fill="#db2777" opacity="0.9" />
+  <path d="M116 135 Q135 138 142 148 M118 144 Q132 147 138 156" stroke="#fbcfe8" stroke-width="2" fill="none" stroke-linecap="round" />
+  <!-- Main Cerebrum -->
+  <path d="M48 108 C38 92, 42 65, 62 48 C82 32, 115 28, 138 40 C158 50, 168 70, 165 92 C162 112, 148 128, 128 132 C112 135, 96 130, 85 134 C72 138, 56 128, 48 108 Z" fill="url(#brainGrad)" filter="url(#glow)" />
+  <!-- Brain Sulci/Gyri Convolutions -->
+  <path d="M62 55 Q78 48 95 62 Q112 76 130 60 Q145 48 152 68" stroke="#fdf2f8" stroke-width="3" fill="none" stroke-linecap="round" />
+  <path d="M52 82 Q72 75 88 90 Q105 105 125 85 Q145 68 158 92" stroke="#fdf2f8" stroke-width="3" fill="none" stroke-linecap="round" />
+  <path d="M50 102 Q68 108 85 96 Q102 85 118 105 Q135 120 148 112" stroke="#fdf2f8" stroke-width="2.8" fill="none" stroke-linecap="round" />
+  <path d="M72 120 Q92 115 105 124" stroke="#fdf2f8" stroke-width="2.5" fill="none" stroke-linecap="round" />
+  <path d="M85 36 Q100 50 115 38" stroke="#fce7f3" stroke-width="2" fill="none" stroke-linecap="round" />
+  <!-- Highlight shine -->
+  <circle cx="82" cy="46" r="4" fill="#ffffff" opacity="0.6" />
+  <circle cx="95" cy="42" r="2.5" fill="#ffffff" opacity="0.8" />
+</svg>

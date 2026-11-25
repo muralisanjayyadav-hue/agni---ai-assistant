@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="heartBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a0d12" />
+      <stop offset="100%" stop-color="#120406" />
+    </linearGradient>
+    <linearGradient id="muscleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="50%" stop-color="#dc2626" />
+      <stop offset="100%" stop-color="#991b1b" />
+    </linearGradient>
+    <linearGradient id="aortaGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f87171" />
+      <stop offset="100%" stop-color="#dc2626" />
+    </linearGradient>
+    <linearGradient id="venaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="24" fill="url(#heartBg)" />
+  <!-- Superior Vena Cava (Blue) -->
+  <path d="M68 28 L68 70 L82 70 L82 28 Z" fill="url(#venaGrad)" rx="5" />
+  <ellipse cx="75" cy="28" rx="7" ry="3.5" fill="#bae6fd" />
+  <!-- Pulmonary Artery (Blue/Purple) -->
+  <path d="M102 48 C96 52, 90 62, 88 78 L114 78 C116 68, 122 55, 134 50 L126 38 C114 42, 106 44, 102 48 Z" fill="#3b82f6" />
+  <!-- Aorta Arch (Red) -->
+  <path d="M84 55 C82 30, 118 20, 132 40 C138 48, 138 60, 136 75 L118 75 C120 62, 118 52, 114 46 C108 38, 92 42, 94 58 Z" fill="url(#aortaGrad)" />
+  <!-- Aorta branches -->
+  <rect x="98" y="18" width="6" height="15" rx="3" fill="#fca5a5" />
+  <rect x="108" y="16" width="6" height="15" rx="3" fill="#fca5a5" />
+  <rect x="118" y="20" width="6" height="15" rx="3" fill="#fca5a5" />
+  <!-- Main Ventricles & Atria (Heart Muscle) -->
+  <path d="M56 82 C44 95, 48 122, 65 145 C82 166, 100 182, 104 184 C108 182, 135 158, 150 135 C164 112, 162 86, 145 76 C132 68, 118 74, 104 84 C92 74, 70 68, 56 82 Z" fill="url(#muscleGrad)" />
+  <!-- Coronary vessels / arteries -->
+  <path d="M104 88 Q98 120 102 145 Q104 165 104 182" stroke="#fee2e2" stroke-width="2.5" fill="none" stroke-linecap="round" />
+  <path d="M99 110 Q82 118 74 130" stroke="#fee2e2" stroke-width="1.8" fill="none" stroke-linecap="round" />
+  <path d="M101 130 Q118 135 128 145" stroke="#38bdf8" stroke-width="1.8" fill="none" stroke-linecap="round" />
+  <path d="M98 148 Q88 155 82 164" stroke="#fee2e2" stroke-width="1.5" fill="none" stroke-linecap="round" />
+  <!-- Muscle glow & highlights -->
+  <path d="M60 92 C54 105, 56 125, 70 142" stroke="#f87171" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.6" />
+  <circle cx="72" cy="98" r="3" fill="#ffffff" opacity="0.5" />
+</svg>

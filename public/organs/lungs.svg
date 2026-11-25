@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="lungsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#082f49" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="lungLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="lungRight" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="tracheaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#bae6fd" />
+      <stop offset="100%" stop-color="#7dd3fc" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="24" fill="url(#lungsBg)" />
+  <!-- Trachea (Windpipe) -->
+  <path d="M93 20 L93 72 L107 72 L107 20 Z" fill="url(#tracheaGrad)" rx="4" />
+  <!-- Cartilage rings on Trachea -->
+  <line x1="93" y1="28" x2="107" y2="28" stroke="#0284c7" stroke-width="2" />
+  <line x1="93" y1="36" x2="107" y2="36" stroke="#0284c7" stroke-width="2" />
+  <line x1="93" y1="44" x2="107" y2="44" stroke="#0284c7" stroke-width="2" />
+  <line x1="93" y1="52" x2="107" y2="52" stroke="#0284c7" stroke-width="2" />
+  <line x1="93" y1="60" x2="107" y2="60" stroke="#0284c7" stroke-width="2" />
+  <!-- Left & Right Bronchi -->
+  <path d="M96 72 Q86 85 68 98" stroke="#bae6fd" stroke-width="6" fill="none" stroke-linecap="round" />
+  <path d="M104 72 Q114 85 132 98" stroke="#bae6fd" stroke-width="6" fill="none" stroke-linecap="round" />
+  <!-- Bronchial Tree Branches -->
+  <path d="M68 98 Q55 110 48 128 M68 98 Q65 118 64 138 M68 98 Q76 112 80 132" stroke="#e0f2fe" stroke-width="2" fill="none" stroke-linecap="round" />
+  <path d="M132 98 Q145 110 152 128 M132 98 Q135 118 136 138 M132 98 Q124 112 120 132" stroke="#e0f2fe" stroke-width="2" fill="none" stroke-linecap="round" />
+  <!-- Left Lung (User's left / anatomical right: 3 lobes) -->
+  <path d="M88 78 C85 60, 68 55, 52 70 C34 88, 28 125, 32 152 C35 168, 52 176, 75 174 C86 172, 88 162, 88 145 C88 128, 86 102, 88 78 Z" fill="url(#lungLeft)" opacity="0.85" />
+  <!-- Right Lung (User's right / anatomical left: 2 lobes with cardiac notch) -->
+  <path d="M112 78 C115 60, 132 55, 148 70 C166 88, 172 125, 168 152 C165 168, 148 176, 125 174 C116 172, 114 162, 116 148 C118 138, 110 128, 112 110 C113 95, 112 88, 112 78 Z" fill="url(#lungRight)" opacity="0.85" />
+  <!-- Lobe Fissures -->
+  <path d="M36 118 Q55 125 86 130" stroke="#0369a1" stroke-width="2.2" fill="none" stroke-linecap="round" />
+  <path d="M164 118 Q145 125 116 128" stroke="#0369a1" stroke-width="2.2" fill="none" stroke-linecap="round" />
+</svg>

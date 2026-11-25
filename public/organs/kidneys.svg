@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="kidneyBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e132b" />
+      <stop offset="100%" stop-color="#09050f" />
+    </linearGradient>
+    <linearGradient id="kidneyBean" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b91c1c" />
+      <stop offset="50%" stop-color="#991b1b" />
+      <stop offset="100%" stop-color="#7f1d1d" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="24" fill="url(#kidneyBg)" />
+  <!-- Aorta (Red) & Vena Cava (Blue) central blood vessels -->
+  <path d="M92 18 L92 185 L102 185 L102 18 Z" fill="#ef4444" />
+  <path d="M104 18 L104 185 L114 185 L114 18 Z" fill="#3b82f6" />
+  <!-- Renal Arteries (Red to kidneys) -->
+  <path d="M92 88 L65 92 L65 98 L92 94 Z" fill="#ef4444" />
+  <path d="M102 102 L138 106 L138 100 L102 96 Z" fill="#ef4444" />
+  <!-- Renal Veins (Blue from kidneys) -->
+  <path d="M68 102 L104 100 L104 106 L68 108 Z" fill="#38bdf8" />
+  <path d="M114 90 L136 94 L136 100 L114 96 Z" fill="#38bdf8" />
+  <!-- Ureters (Yellow/white tubes to bladder) -->
+  <path d="M62 110 Q78 140 86 185" stroke="#fef08a" stroke-width="3" fill="none" stroke-linecap="round" />
+  <path d="M138 110 Q122 140 114 185" stroke="#fef08a" stroke-width="3" fill="none" stroke-linecap="round" />
+  <!-- Adrenal Gland Caps (Yellow) -->
+  <path d="M38 68 C42 55, 62 55, 66 66 Z" fill="#facc15" />
+  <path d="M134 68 C138 55, 158 55, 162 66 Z" fill="#facc15" />
+  <!-- Left Kidney (Bean shaped) -->
+  <path d="M52 66 C32 72, 24 100, 32 125 C38 142, 54 150, 68 138 C75 130, 64 115, 64 100 C64 85, 74 74, 52 66 Z" fill="url(#kidneyBean)" />
+  <!-- Right Kidney (Bean shaped) -->
+  <path d="M148 66 C170 72, 176 100, 168 125 C162 142, 146 150, 132 138 C125 130, 136 115, 136 100 C136 85, 126 74, 148 66 Z" fill="url(#kidneyBean)" />
+  <!-- Kidney highlights -->
+  <path d="M35 88 C34 105, 38 122, 48 132" stroke="#fca5a5" stroke-width="2" fill="none" opacity="0.6" />
+  <path d="M165 88 C166 105, 162 122, 152 132" stroke="#fca5a5" stroke-width="2" fill="none" opacity="0.6" />
+</svg>
