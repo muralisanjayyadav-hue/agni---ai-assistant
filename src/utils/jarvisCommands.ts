@@ -17,6 +17,79 @@ export interface CommandExecutionResult {
   shouldClose?: boolean;
 }
 
+/**
+ * Fast local intent parser (runs synchronously BEFORE Groq so tasks work even if network fails)
+ * Handles: open WhatsApp, play on YouTube, search Google, send Email
+ */
+export function parseLocalJarvisIntent(rawInput: string): CommandExecutionResult | null {
+  const trimmed = (rawInput || '').trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase().replace(/[?.!,]+$/g, '').trim();
+
+  // 1. Open WhatsApp ("open whatsapp", "whatsapp kholo", "jarvis open whatsapp")
+  if (
+    (/\b(open|launch|start)\s+whatsapp\b/i.test(lower) || /\bwhatsapp\s+kholo\b/i.test(lower)) &&
+    !lower.includes('send whatsapp') &&
+    !lower.includes('message')
+  ) {
+    const url = 'https://web.whatsapp.com/';
+    openAppOrUrl(url, 'com.whatsapp');
+    return {
+      speechText: 'Opening WhatsApp',
+      displayText: 'Opening WhatsApp (web.whatsapp.com)...',
+      actionTaken: 'openWhatsApp',
+      openUrl: url,
+    };
+  }
+
+  // 2. Play on YouTube ("play * on youtube", "youtube pe * chalao")
+  const ytEn = lower.match(/(?:play|search)\s+(.+?)\s+on\s+youtube/i);
+  const ytHi = lower.match(/youtube\s+(?:pe|par)\s+(.+?)\s+(?:chalao|play|lagao)/i);
+  const ytQuery = (ytEn?.[1] || ytHi?.[1] || '').trim();
+  if (ytQuery) {
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery)}`;
+    openAppOrUrl(url, 'com.google.android.youtube');
+    return {
+      speechText: `Playing ${ytQuery} on YouTube`,
+      displayText: `Opening YouTube for you! 🎶 (${ytQuery})`,
+      actionTaken: 'playYouTube',
+      openUrl: url,
+    };
+  }
+
+  // 3. Search on Google ("search * on google", "google pe * search")
+  const gEn = lower.match(/(?:search|google|look up)\s+(.+?)\s+(?:on|in)\s+google/i);
+  const gHi = lower.match(/google\s+(?:pe|par)\s+(.+?)\s+(?:search|dhundo|khojo)/i);
+  const gQuery = (gEn?.[1] || gHi?.[1] || '').trim();
+  if (gQuery) {
+    const url = `https://www.google.com/search?q=${encodeURIComponent(gQuery)}`;
+    openAppOrUrl(url);
+    return {
+      speechText: `Searching ${gQuery} on Google`,
+      displayText: `Searching Google for "${gQuery}"...`,
+      actionTaken: 'searchGoogle',
+      openUrl: url,
+    };
+  }
+
+  // 4. Send Email ("send email", "mail bhejo") — if no specific "to ... about ..." was given
+  if (
+    (/\b(send\s+(?:an?\s+)?e?mail|compose\s+e?mail|open\s+gmail)\b/i.test(lower) && !lower.includes('about ')) ||
+    /\bmail\s+bhejo\b/i.test(lower)
+  ) {
+    const url = 'https://mail.google.com/mail/?view=cm';
+    openAppOrUrl(url, 'com.google.android.gm');
+    return {
+      speechText: 'Opening Gmail to compose your email',
+      displayText: 'Opening Gmail compose window...',
+      actionTaken: 'sendEmail',
+      openUrl: url,
+    };
+  }
+
+  return null;
+}
+
 // App URL mappings for Web & Android
 const APP_URL_MAP: Record<string, { web: string; androidPkg?: string }> = {
   whatsapp: { web: 'https://web.whatsapp.com/', androidPkg: 'com.whatsapp' },

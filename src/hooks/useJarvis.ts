@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { runSystemCommand } from '../lib/agniDesktop';
 import { runAgniDiagnostics } from '../lib/agniDiagnostics';
 import { runFullAgniTests } from '../lib/agniTestSuite';
+import { parseLocalJarvisIntent, processJarvisCommand } from '../utils/jarvisCommands';
 
 export interface UseJarvisReturn {
   isListening: boolean;
@@ -153,6 +154,17 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       stopSpeaking();
       setYouSaid(cleanInput);
 
+      // Check for Local Device Intents FIRST (works offline & before Groq)
+      const localIntent = parseLocalJarvisIntent(cleanInput);
+      if (localIntent) {
+        setJarvisReply(localIntent.displayText || localIntent.speechText);
+        setLastAction(localIntent.actionTaken);
+        setIsThinking(false);
+        isThinkingRef.current = false;
+        speakAloud(localIntent.speechText);
+        return;
+      }
+
       // Check for Desktop System Commands (brightness, volume, battery, lock, apps)
       const sys = await runSystemCommand(cleanInput);
       if (sys.handled && sys.reply) {
@@ -259,15 +271,29 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       setJarvisReply('Jarvis is processing...');
 
       try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: cleanInput,
-            isJarvis: true,
-            mode: 'jarvis',
-          }),
-        });
+        let res: Response;
+        try {
+          res = await fetch('/api/jarvis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: cleanInput,
+              isJarvis: true,
+              mode: 'jarvis',
+            }),
+          });
+        } catch (netErr) {
+          console.warn('[Jarvis] /api/jarvis first attempt failed, retrying once...', netErr);
+          res = await fetch('/api/jarvis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: cleanInput,
+              isJarvis: true,
+              mode: 'jarvis',
+            }),
+          });
+        }
 
         if (res.status === 429) {
           const limitMsg = 'Groq rate limit encountered. Switched to next key in circle rotation. Please try again.';
@@ -279,21 +305,42 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         }
 
         const data = await res.json();
-        const sayText = data.say || data.reply || data.text || 'I have completed your request, Sir.';
-        const actionUrl = data.action?.url;
+        let sayText = data.say || data.reply || data.text || 'I have completed your request, Sir.';
+        const actionType = data.action?.type || data.action;
+        const actionQuery = data.action?.query || data.query || '';
+        let actionUrl = data.action?.url;
+
+        // Map JSON action if URL wasn't pre-populated
+        if (!actionUrl && typeof actionType === 'string') {
+          if (actionType === 'openWhatsApp') actionUrl = 'https://web.whatsapp.com/';
+          else if (actionType === 'playYouTube') actionUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(actionQuery || cleanInput)}`;
+          else if (actionType === 'searchGoogle') actionUrl = `https://www.google.com/search?q=${encodeURIComponent(actionQuery || cleanInput)}`;
+          else if (actionType === 'sendEmail') actionUrl = 'https://mail.google.com/mail/?view=cm';
+        }
+
+        // Never display "I am not able to play videos directly" or "I'm sorry, but I can't help with that"
+        if (/not able to play videos|can'?t help with that/i.test(sayText)) {
+          if (cleanInput.toLowerCase().includes('youtube')) {
+            sayText = 'Opening YouTube for you! 🎶';
+            actionUrl = actionUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanInput.replace(/play|on youtube/gi, '').trim())}`;
+          } else if (cleanInput.toLowerCase().includes('whatsapp')) {
+            sayText = 'Opening WhatsApp';
+            actionUrl = actionUrl || 'https://web.whatsapp.com/';
+          }
+        }
 
         setJarvisReply(sayText);
-        setLastAction(data.action?.type || 'command_completed');
+        setLastAction(typeof actionType === 'string' ? actionType : 'command_completed');
         setIsThinking(false);
         isThinkingRef.current = false;
 
-        // Frontend: if response has action.url, window.open(action.url, '_blank'), then speak full say
+        // Frontend: if response has actionUrl, window.open(actionUrl, '_blank'), then speak full say
         if (actionUrl && typeof window !== 'undefined') {
           window.open(actionUrl, '_blank');
         }
 
         speakAloud(sayText, () => {
-          if (data.action?.type === 'close' || sayText.toLowerCase().includes('closing jarvis')) {
+          if (actionType === 'close' || sayText.toLowerCase().includes('closing jarvis')) {
             setTimeout(() => {
               if (onCloseRef.current) onCloseRef.current();
               else if (onNavigateRef.current) onNavigateRef.current('/');
@@ -301,11 +348,12 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
           }
         });
       } catch (err) {
-        console.error('[Jarvis Command Error]', err);
+        console.error('[Jarvis Command Error] Falling back to local parser:', err);
+        const fallbackRes = await processJarvisCommand(cleanInput);
         setIsThinking(false);
         isThinkingRef.current = false;
-        const fallbackText = 'Let me look into that for you, Sir.';
-        setJarvisReply(fallbackText);
+        const fallbackText = fallbackRes?.speechText || 'Let me look into that for you, Sir.';
+        setJarvisReply(fallbackRes?.displayText || fallbackText);
         speakAloud(fallbackText);
       }
     },
@@ -659,11 +707,9 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
           const err = event.error;
 
           if (err === 'network') {
-            if (retryCount < MAX_RETRY) {
+            if (retryCount < 1) {
               retryCount++;
-              console.log(`[AGNI Voice] Network error, retrying ${retryCount}/${MAX_RETRY} in 1s...`);
-              const statusEl = document.getElementById('live-voice-status');
-              if (statusEl) statusEl.textContent = `Network issue, retrying ${retryCount}/${MAX_RETRY}...`;
+              console.warn('[AGNI Voice] WebSpeech network hiccup, retrying once silently...');
               setTimeout(() => {
                 if (shouldListenRef.current && recognitionRef.current) {
                   try { recognitionRef.current.start(); } catch (e) {}
@@ -671,15 +717,15 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
               }, 1000);
               return;
             } else {
-              console.warn('[AGNI Voice] Max retries reached for network error');
-              const statusEl = document.getElementById('live-voice-status');
-              const fallbackMsg = "Network error - Please check internet, or type manually. Retrying with Groq Whisper...";
-              if (statusEl) statusEl.textContent = fallbackMsg;
+              // Stop WebSpeech retry loop cleanly; MediaRecorder + Groq Whisper VAD remains active!
+              retryCount = MAX_RETRY + 1;
+              console.warn('[AGNI Voice] WebSpeech network unavailable, relying on Groq Whisper VAD');
               return;
             }
           }
 
           if (err === 'not-allowed' || err === 'permission-denied') {
+            console.error('Mic permission denied');
             const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
             const statusEl = document.getElementById('live-voice-status');
             if (statusEl) statusEl.textContent = msg;
@@ -693,10 +739,10 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         };
 
         recognition.onend = () => {
-          // If still should listen, keep listening active for MediaRecorder / Whisper
+          // Only restart WebSpeech if we didn't hit the network retry cap
           if (!shouldListenRef.current) {
             setIsListening(false);
-          } else if (!isSpeakingRef.current && !isThinkingRef.current) {
+          } else if (!isSpeakingRef.current && !isThinkingRef.current && retryCount <= 1) {
             try {
               recognition.start();
             } catch {}

@@ -40,11 +40,12 @@ app.get(["/api/health", "/health"], (_req, res) => {
   });
 });
 
-// ── Super Safe /api/chat & /api/heart Endpoint (Lazy Groq import inside handler) ──
-app.post(["/api/chat", "/chat", "/api/agni", "/api/heart", "/heart"], async (req, res) => {
+// ── Super Safe /api/chat, /api/heart & /api/jarvis Endpoint ───────────────────
+app.post(["/api/chat", "/chat", "/api/agni", "/api/heart", "/heart", "/api/jarvis", "/jarvis"], async (req, res) => {
   try {
     const isHeartCare = Boolean(req.body?.isHeartCare) || req.path.includes("heart");
-    console.log("[AGNI Chat] Request received:", { msgs: req.body?.messages?.length || req.body?.message, isHeartCare, path: req.path });
+    const isJarvis = Boolean(req.body?.isJarvis) || req.body?.mode === "jarvis" || req.path.includes("jarvis");
+    console.log("[AGNI Chat] Request received:", { msgs: req.body?.messages?.length || req.body?.message, isHeartCare, isJarvis, path: req.path });
 
     // DIRECT env read - ONLY GROQ_API_KEY
     let groqKey = process.env.GROQ_API_KEY || "";
@@ -172,7 +173,13 @@ RULES:
 - Disclaimer: "I'm an AI companion, not a doctor, but I'm here to support you; if anything feels overwhelming, consider reaching out to a trusted person or helpline."
 - Never repeat same exercise twice — check conversation history.`;
 
-    const systemPrompt = isHeartCare ? heartCareSystemPrompt : regularSystemPrompt;
+    const jarvisSystemPrompt = `You are AGNI JARVIS - You CAN and MUST execute device actions: open WhatsApp, play YouTube, search Google, send Email by returning JSON {"action": "openWhatsApp" | "playYouTube" | "searchGoogle" | "sendEmail", "query": "string", "say": "string"}. Never say "I can't help with that" or "I am not able to play videos directly" for these 4 tasks. For playYouTube, set "say" to "Opening YouTube for you! 🎶". For normal questions, reply concisely as JARVIS in JSON {"action": "none", "query": "", "say": "your answer"}.`;
+
+    const systemPrompt = isHeartCare
+      ? heartCareSystemPrompt
+      : isJarvis
+      ? jarvisSystemPrompt
+      : regularSystemPrompt;
     const fullMessages = [
       { role: "system" as const, content: systemPrompt },
       ...formattedMessages,
@@ -243,6 +250,32 @@ RULES:
 
     console.log("[AGNI Chat] Groq success, reply length:", reply.length);
     res.setHeader("Content-Type", "application/json; charset=utf-8");
+
+    if (isJarvis) {
+      let parsedAction: any = null;
+      let sayText = reply;
+      try {
+        const jsonMatch = reply.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const obj = JSON.parse(jsonMatch[0]);
+          const act = obj.action;
+          const q = obj.query || "";
+          sayText = obj.say || reply;
+          if (act === "openWhatsApp") {
+            parsedAction = { type: "openWhatsApp", query: q, url: "https://web.whatsapp.com/" };
+          } else if (act === "playYouTube") {
+            parsedAction = { type: "playYouTube", query: q, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(q || lastMsg)}` };
+            sayText = obj.say || "Opening YouTube for you! 🎶";
+          } else if (act === "searchGoogle") {
+            parsedAction = { type: "searchGoogle", query: q, url: `https://www.google.com/search?q=${encodeURIComponent(q || lastMsg)}` };
+          } else if (act === "sendEmail") {
+            parsedAction = { type: "sendEmail", query: q, url: "https://mail.google.com/mail/?view=cm" };
+          }
+        }
+      } catch {}
+      return res.json({ reply: sayText, text: sayText, say: sayText, action: parsedAction });
+    }
+
     return res.json({ reply: reply, text: reply });
   } catch (error: any) {
     console.error("[AGNI Chat ERROR] Full error:", error?.stack || error?.message, error?.status);

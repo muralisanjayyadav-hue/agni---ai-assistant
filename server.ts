@@ -634,8 +634,8 @@ function getFounderAnswerIfApplicable(query: string): string | null {
   return null;
 }
 
-// 1. General Chat & Heart Care Endpoint with Persona & Memory
-app.post(["/api/chat", "/chat", "/api/heart", "/heart"], async (req, res) => {
+// 1. General Chat, Heart Care & Jarvis Endpoint with Persona & Memory
+app.post(["/api/chat", "/chat", "/api/heart", "/heart", "/api/jarvis", "/jarvis"], async (req, res) => {
   try {
     const clientIp = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "global-client").split(",")[0].trim();
     
@@ -648,10 +648,17 @@ app.post(["/api/chat", "/chat", "/api/heart", "/heart"], async (req, res) => {
       });
     }
 
-    const { messages, userPreferences, memories, authUser, isHeartCare } = req.body;
+    const { messages: rawMessages, message: singleMessage, userPreferences, memories, authUser, isHeartCare, isJarvis } = req.body;
     const isHeartCareMode = isHeartCare === true || req.body.mode === 'heart_care' || req.path.includes('heart');
+    const isJarvisMode = isJarvis === true || req.body.mode === 'jarvis' || req.path.includes('jarvis');
 
-    if (!Array.isArray(messages) || messages.length === 0) {
+    const messages = Array.isArray(rawMessages) && rawMessages.length > 0
+      ? rawMessages
+      : singleMessage
+      ? [{ role: 'user', text: String(singleMessage) }]
+      : [];
+
+    if (messages.length === 0) {
       return res.status(400).json({ error: "Messages array is required." });
     }
 
@@ -858,10 +865,14 @@ CORE PRINCIPLES WHEN RESPONDING TO EMOTIONS & LIFE STRUGGLES:
 `
       : '';
 
+    const jarvisDirective = isJarvisMode
+      ? `\n- JARVIS DEVICE ACTION EXECUTION (CRITICAL):\n  You are AGNI JARVIS - You CAN and MUST execute device actions: open WhatsApp, play YouTube, search Google, send Email by returning JSON {"action": "openWhatsApp"|"playYouTube"|"searchGoogle"|"sendEmail", "query": "string", "say": "string"}. Never say "I can't help with that" or "I am not able to play videos directly" for these 4 tasks. For playYouTube, set "say" to "Opening YouTube for you! 🎶".`
+      : '';
+
     const systemInstruction = `You are AGNI (${isHeartCareMode ? '💖 AGNI Heart & Mind Care' : '🔥'}), an intelligent personal AI assistant developed with the spirit of "Made in India, To Serve the World."
 ${PERMANENT_FOUNDER_INSTRUCTION}
 ${userPersonaInstruction}
-${heartCareSpecialDirective}
+${heartCareSpecialDirective}${jarvisDirective}
 Your attributes:
 - Warm, respectful, sharp, reliable, encouraging, and culturally grounded yet globally knowledgeable.
 - When greeting users initially or introducing yourself, greet naturally in the active language (e.g., in Tamil: "வணக்கம், AGNI க்கு வரவேற்கிறோம்!", in Hindi: "नमस्ते, AGNI में आपका स्वागत है!", in English: "Hello, welcome to AGNI!").
@@ -958,6 +969,30 @@ Always maintain safety, honesty, and humility. Never pretend you have completed 
     }
 
     res.setHeader("Content-Type", "application/json; charset=utf-8");
+    if (isJarvisMode) {
+      let parsedAction: any = null;
+      let sayText = responseText;
+      try {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const obj = JSON.parse(jsonMatch[0]);
+          const act = obj.action;
+          const q = obj.query || "";
+          sayText = obj.say || responseText;
+          if (act === "openWhatsApp") {
+            parsedAction = { type: "openWhatsApp", query: q, url: "https://web.whatsapp.com/" };
+          } else if (act === "playYouTube") {
+            parsedAction = { type: "playYouTube", query: q, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(q || latestUserMsg)}` };
+            sayText = obj.say || "Opening YouTube for you! 🎶";
+          } else if (act === "searchGoogle") {
+            parsedAction = { type: "searchGoogle", query: q, url: `https://www.google.com/search?q=${encodeURIComponent(q || latestUserMsg)}` };
+          } else if (act === "sendEmail") {
+            parsedAction = { type: "sendEmail", query: q, url: "https://mail.google.com/mail/?view=cm" };
+          }
+        }
+      } catch {}
+      return res.json({ text: sayText, reply: sayText, say: sayText, action: parsedAction });
+    }
     return res.json({ text: responseText, suggestedMemories: suggestedMemories.length > 0 ? suggestedMemories : undefined, reply: responseText });
   } catch (error: any) {
     console.error("Error in /api/chat:", error);

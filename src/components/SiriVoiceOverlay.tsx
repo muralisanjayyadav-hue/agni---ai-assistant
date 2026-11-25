@@ -38,6 +38,7 @@ import {
 import { apiFetch } from '../utils/api';
 import { getLanguageOption } from '../data/languages';
 import { VoiceWaveChart } from './VoiceWaveChart';
+import { parseLocalJarvisIntent } from '../utils/jarvisCommands';
 
 export interface VoiceDialogueItem {
   id: string;
@@ -364,7 +365,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
           mediaStreamRef.current = stream;
         }
       } catch (err: any) {
-        console.warn('Microphone permission warning:', err);
+        console.error('Mic permission denied', err);
         setErrorMessage(
           'Microphone access blocked. Click "Allow" in browser permissions or type your question below.'
         );
@@ -374,7 +375,7 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
     }
 
     if (!stream) {
-      setErrorMessage('Microphone is not available in this browser window. You can type queries in the box below!');
+      setErrorMessage('Mic needs Chrome + HTTPS. You can also type queries in the box below!');
       setVoiceState('idle');
       return;
     }
@@ -520,11 +521,9 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
             console.warn('AGNI Voice SpeechRecognition event info:', errType);
 
             if (errType === 'network') {
-              if (retryCount < MAX_RETRY) {
+              if (retryCount < 1) {
                 retryCount++;
-                console.log(`[AGNI Voice] Network error, retrying ${retryCount}/${MAX_RETRY} in 1s...`);
-                const statusEl = document.getElementById('live-voice-status');
-                if (statusEl) statusEl.textContent = `Network issue, retrying ${retryCount}/${MAX_RETRY}...`;
+                console.warn('[AGNI Voice] WebSpeech network hiccup, retrying once silently...');
                 setTimeout(() => {
                   if (activeRef.current && recognitionRef.current) {
                     try { recognitionRef.current.start(); } catch (e) {}
@@ -532,16 +531,14 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
                 }, 1000);
                 return;
               } else {
-                console.warn('[AGNI Voice] Max retries reached for network error');
-                const statusEl = document.getElementById('live-voice-status');
-                const fallbackMsg = "Network error - Please check internet, or type manually. Retrying with Groq Whisper...";
-                if (statusEl) statusEl.textContent = fallbackMsg;
-                setErrorMessage(fallbackMsg);
+                // Rely cleanly on active MediaRecorder + Groq Whisper fallback
+                console.warn('[AGNI Voice] WebSpeech network unavailable, using Groq Whisper audio capture');
                 return;
               }
             }
 
             if (errType === 'not-allowed' || errType === 'service-not-allowed' || errType === 'permission-denied') {
+              console.error('Mic permission denied');
               const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
               const statusEl = document.getElementById('live-voice-status');
               if (statusEl) statusEl.textContent = msg;
@@ -715,6 +712,36 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
       timestamp: timeNow,
     };
     setDialogueHistory((prev) => [...prev, userItem]);
+
+    // Check Local Device Intents FIRST (WhatsApp, YouTube, Google, Email)
+    const localIntent = parseLocalJarvisIntent(cleanQuery);
+    if (localIntent) {
+      const reply = localIntent.displayText || localIntent.speechText;
+      setLastReply(reply);
+      const agniItem: VoiceDialogueItem = {
+        id: `agni-${Date.now()}`,
+        speaker: 'agni',
+        text: reply,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isPodcast: false,
+      };
+      setDialogueHistory((prev) => [...prev, agniItem]);
+      streamText(reply);
+      if (shouldSpeak) {
+        setVoiceState('speaking');
+        speakText(localIntent.speechText, {
+          rate: voiceSpeed,
+          pitch: 1.05,
+          volume: 1.0,
+          profile: userPreferences.voiceProfile || 'natural-warm',
+          lang: currentLangConfig.speechCode || 'en-IN',
+          onEnd: () => setVoiceState('idle'),
+        });
+      } else {
+        setVoiceState('idle');
+      }
+      return;
+    }
 
     try {
       const responseStyleModifier = podcastActive

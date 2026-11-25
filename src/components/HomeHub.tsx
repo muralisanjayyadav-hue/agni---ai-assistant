@@ -123,7 +123,12 @@ export const HomeHub: React.FC<HomeHubProps> = ({
     }
 
     if (!isSpeechRecognitionSupported()) {
-      console.warn('Speech recognition not supported.');
+      console.warn('Speech recognition not supported: Mic needs Chrome + HTTPS');
+      const statusEl = document.getElementById('live-voice-status');
+      if (statusEl) {
+        statusEl.className = 'text-xs text-amber-400 mt-1.5 px-2 text-center';
+        statusEl.textContent = 'Mic needs Chrome + HTTPS';
+      }
       return;
     }
 
@@ -205,6 +210,7 @@ export const HomeHub: React.FC<HomeHubProps> = ({
         }
 
         if (err === 'not-allowed' || err === 'permission-denied') {
+          console.error('Mic permission denied');
           const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
           const statusEl = document.getElementById('live-voice-status');
           if (statusEl) statusEl.textContent = msg;
