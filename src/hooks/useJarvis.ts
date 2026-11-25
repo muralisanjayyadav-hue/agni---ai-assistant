@@ -367,6 +367,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
     }
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       setMicPermission('denied');
+      setJarvisReply('Mic needs Chrome + HTTPS');
       return null;
     }
 
