@@ -18,15 +18,15 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     build: {
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
             'vendor-icons': ['lucide-react'],
-            'vendor-markdown': ['react-markdown', 'dompurify'],
-            // Heavy libs split into own chunks (lazy loaded)
-            'vendor-pdf': ['jspdf'],
+            'vendor-ai': ['groq-sdk', 'react-markdown', 'remark-gfm', 'dompurify'],
+            'vendor-docs': ['jspdf', 'docx', 'pptxgenjs', 'file-saver'],
+            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
           },
         },
       },

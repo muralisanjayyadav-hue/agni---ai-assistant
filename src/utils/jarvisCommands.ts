@@ -117,6 +117,7 @@ const APP_URL_MAP: Record<string, { web: string; androidPkg?: string }> = {
   facebook: { web: 'https://www.facebook.com/', androidPkg: 'com.facebook.katana' },
   telegram: { web: 'https://web.telegram.org/', androidPkg: 'org.telegram.messenger' },
   github: { web: 'https://github.com/' },
+  calculator: { web: 'https://www.google.com/search?q=calculator', androidPkg: 'com.google.android.calculator' },
   playstore: { web: 'https://play.google.com/store', androidPkg: 'com.android.vending' },
   'play store': { web: 'https://play.google.com/store', androidPkg: 'com.android.vending' },
   settings: { web: 'about:blank', androidPkg: 'com.android.settings' },
@@ -268,7 +269,7 @@ export async function processJarvisCommand(rawInput: string): Promise<CommandExe
 
   // 3. SEARCH GOOGLE
   const googleMatch =
-    clean.match(/^(?:search|google|search on google for|search google for|look up)\s+(.+?)(?:\s+on google)?$/i) ||
+    clean.match(/^(?:search on google for|search google for|search google|look up|search|google)\s+(.+?)(?:\s+on google)?$/i) ||
     clean.match(/^search\s+(.+)$/i);
   if (googleMatch && (clean.includes('google') || !clean.includes('amazon') && !clean.includes('youtube'))) {
     const query = googleMatch[1].replace(/on google/gi, '').trim();
@@ -441,6 +442,20 @@ export async function processJarvisCommand(rawInput: string): Promise<CommandExe
       speechText: `Writing email about ${topic}, sir. Opening Gmail with email ready.`,
       displayText: `To: ${targetEmail}\nSubject: ${subject}\n\n${emailBody}\n\n(Draft opened in Gmail. Tap Send to dispatch)`,
       actionTaken: 'send_email',
+      openUrl: gmailUrl,
+    };
+  }
+
+  // 10.1 BARE SEND EMAIL / COMPOSE EMAIL / MAIL BHEJO
+  if (
+    /\b(send\s+(?:an?\s+)?e?mail|compose\s+e?mail|open\s+gmail|mail\s+bhejo)\b/i.test(clean)
+  ) {
+    const gmailUrl = 'https://mail.google.com/mail/?view=cm';
+    openAppOrUrl(gmailUrl, 'com.google.android.gm');
+    return {
+      speechText: 'Opening Gmail to compose your email, sir.',
+      displayText: 'Opening Gmail compose window...',
+      actionTaken: 'sendEmail',
       openUrl: gmailUrl,
     };
   }

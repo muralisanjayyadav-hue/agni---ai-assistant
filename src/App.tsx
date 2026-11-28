@@ -3,7 +3,7 @@ import { Header } from './components/Header';
 import AccountMenu from './components/AccountMenu';
 import { Navigation } from './components/Navigation';
 import { HomeHub } from './components/HomeHub';
-import { ChatView } from './components/ChatView';
+const ChatView = lazy(() => import('./components/ChatView').then(m => ({ default: m.ChatView })));
 const LearnView = lazy(() => import('./components/LearnView').then(m => ({ default: m.LearnView })));
 const VisionView = lazy(() => import('./components/VisionView').then(m => ({ default: m.VisionView })));
 const DocumentsView = lazy(() => import('./components/DocumentsView').then(m => ({ default: m.DocumentsView })));
@@ -17,11 +17,11 @@ import { SmartLifeOS } from './components/SmartLifeOS';
 const JarvisView = lazy(() => import('./components/JarvisView').then(m => ({ default: m.JarvisView })));
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
-import { SiriVoiceOverlay } from './components/SiriVoiceOverlay';
+const SiriVoiceOverlay = lazy(() => import('./components/SiriVoiceOverlay').then(m => ({ default: m.SiriVoiceOverlay })));
 import { VoiceTriggerFab } from './components/VoiceTriggerFab';
 import { TermsPolicyModal } from './components/TermsPolicyModal';
 import { FounderAccessModal } from './components/FounderAccessModal';
-import { HeartCareChatView } from './components/HeartCareChatView';
+const HeartCareChatView = lazy(() => import('./components/HeartCareChatView').then(m => ({ default: m.HeartCareChatView })));
 import { SettingsView } from './components/SettingsView';
 import { VoiceChatView } from './components/VoiceChatView';
 import { AndroidHardwareTriggerModal } from './components/AndroidHardwareTriggerModal';
@@ -1961,22 +1961,24 @@ export default function App() {
       />
 
       {/* AGNI Voice Box Ã¢â‚¬â€ Neural Voice Companion */}
-      <SiriVoiceOverlay
-        isOpen={isSiriOpen}
-        isExpanded={isSiriExpanded}
-        onToggleExpand={(val) => setIsSiriExpanded(val)}
-        onClose={() => setIsSiriOpen(false)}
-        onTransferToChat={handleTransferSiriToChat}
-        userPreferences={userPreferences}
-        onUpdatePreferences={handleUpdatePreferences}
-        memories={memories.map((m) => m.content)}
-        onOpenTerms={() => handleOpenTerms('terms')}
-        onNavigateTab={handleSelectTab}
-        authUser={authUser}
-        onUpdateLanguage={(lang) => {
-          handleUpdatePreferences({ language: lang });
-        }}
-      />
+      <Suspense fallback={<div className="text-orange-500">Loading AGNI...</div>}>
+        <SiriVoiceOverlay
+          isOpen={isSiriOpen}
+          isExpanded={isSiriExpanded}
+          onToggleExpand={(val) => setIsSiriExpanded(val)}
+          onClose={() => setIsSiriOpen(false)}
+          onTransferToChat={handleTransferSiriToChat}
+          userPreferences={userPreferences}
+          onUpdatePreferences={handleUpdatePreferences}
+          memories={memories.map((m) => m.content)}
+          onOpenTerms={() => handleOpenTerms('terms')}
+          onNavigateTab={handleSelectTab}
+          authUser={authUser}
+          onUpdateLanguage={(lang) => {
+            handleUpdatePreferences({ language: lang });
+          }}
+        />
+      </Suspense>
 
       {/* Authentication Modal */}
       <AuthModal
