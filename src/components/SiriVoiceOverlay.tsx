@@ -39,6 +39,7 @@ import { apiFetch } from '../utils/api';
 import { getLanguageOption } from '../data/languages';
 import { VoiceWaveChart } from './VoiceWaveChart';
 import { parseLocalJarvisIntent } from '../utils/jarvisCommands';
+import { generateAndDownloadDocument } from '../utils/exportDocuments';
 
 export interface VoiceDialogueItem {
   id: string;
@@ -328,33 +329,137 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Backup 5-second MediaRecorder -> /api/transcribe fallback (when WebSpeech is blocked or hits network error)
+  const startMediaRecorderFallback = async () => {
+    try {
+      console.log('🎙️ Starting MediaRecorder Whisper fallback...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/webm';
+      const recorder = new MediaRecorder(stream, MediaRecorder.isTypeSupported(mimeType) ? { mimeType } : undefined);
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = async () => {
+        try {
+          const audioBlob = new Blob(chunks, { type: recorder.mimeType || mimeType });
+          stream.getTracks().forEach((t) => t.stop());
+          if (audioBlob.size < 300) {
+            setVoiceState('idle');
+            setErrorMessage("Didn't catch any speech. Tap the orb to speak, or type below!");
+            return;
+          }
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            try {
+              const base64Audio = (reader.result as string) || '';
+              const res = await fetch('/api/transcribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  audioBase64: base64Audio,
+                  mimeType: recorder.mimeType || mimeType,
+                  language: currentLangConfig.label,
+                }),
+              });
+              const data = await res.json();
+              const text = (data.text || data.transcription || '').trim();
+              if (text) {
+                console.log('✅ Backup Whisper Heard:', text);
+                setTranscript(text);
+                setTypedInput(text);
+                handleProcessQuery(text);
+              } else {
+                setVoiceState('idle');
+                setErrorMessage("Didn't catch any speech. Tap the orb or type below!");
+              }
+            } catch (err) {
+              console.error('Backup transcribe error:', err);
+              setVoiceState('idle');
+              setErrorMessage('❌ Backup mic failed. Use typing box below!');
+            }
+          };
+        } catch (err) {
+          console.error('Backup recorder stop error:', err);
+          setVoiceState('idle');
+        }
+      };
+      recorder.start();
+      setVoiceState('listening');
+      activeRef.current = true;
+      setErrorMessage('🎙️ Listening via backup mic (5 sec)... Speak now!');
+      setTimeout(() => {
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        }
+      }, 5000);
+    } catch (err) {
+      console.error('startMediaRecorderFallback failed:', err);
+      setVoiceState('idle');
+      setErrorMessage('❌ Backup mic also failed. Use typing box below!');
+    }
+  };
+
   // Start speech recognition & audio capture
   const startListening = async (langCode: string = currentLangConfig.speechCode) => {
-    console.log(
-      'SpeechRecognition available:',
-      typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
-    );
-    if (typeof navigator !== 'undefined' && (navigator as any).permissions?.query) {
-      (navigator as any).permissions
-        .query({ name: 'microphone' })
-        .then((p: any) => console.log('Mic permission state:', p.state))
-        .catch(() => {});
-    }
+    try {
+      console.log(
+        'SpeechRecognition available:',
+        typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+      );
+      if (typeof navigator !== 'undefined' && (navigator as any).permissions?.query) {
+        (navigator as any).permissions
+          .query({ name: 'microphone' })
+          .then((p: any) => console.log('Mic permission state:', p.state))
+          .catch(() => {});
+      }
 
-    stopSpeaking();
-    clearStreamInterval();
-    setErrorMessage(null);
-    setTranscript('');
-    transcriptRef.current = '';
-    setStreamedReply('');
-    isTranscribingRef.current = false;
-    hasSpokenRef.current = false;
+      stopSpeaking();
+      clearStreamInterval();
+      setErrorMessage(null);
+      setTranscript('');
+      transcriptRef.current = '';
+      setStreamedReply('');
+      isTranscribingRef.current = false;
+      hasSpokenRef.current = false;
 
-    // 1. Acquire local microphone stream via getUserMedia
-    let stream = mediaStreamRef.current;
-    if (!stream || !stream.active) {
-      try {
-        if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      // 1. Check secure context (HTTPS or localhost)
+      if (
+        typeof window !== 'undefined' &&
+        location.protocol !== 'https:' &&
+        location.hostname !== 'localhost' &&
+        location.hostname !== '127.0.0.1'
+      ) {
+        const msg = '❌ Mic needs HTTPS! Please use https:// or localhost. Current: ' + location.protocol;
+        console.error(msg);
+        setErrorMessage(msg);
+        setLastReply(msg);
+        setVoiceState('idle');
+        return;
+      }
+
+      // 2. Check browser support
+      const SpeechRecognition =
+        typeof window !== 'undefined' &&
+        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      if (!SpeechRecognition && !navigator.mediaDevices?.getUserMedia) {
+        const msg = '❌ Mic not supported in this browser. Use Chrome latest!';
+        console.error(msg);
+        setErrorMessage(msg);
+        setLastReply(msg);
+        setVoiceState('idle');
+        return;
+      }
+
+      // 3. Request mic permission FIRST (required for Chrome)
+      let stream = mediaStreamRef.current;
+      if (!stream || !stream.active) {
+        try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
@@ -363,126 +468,125 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
             },
           });
           mediaStreamRef.current = stream;
+          console.log('✅ Mic permission granted, stream:', stream.id);
+        } catch (err: any) {
+          console.error('getUserMedia error:', err);
+          let msg = `❌ Mic error: ${err?.name || 'Error'} - ${err?.message || 'Unknown'}. Try Chrome + HTTPS`;
+          if (err?.name === 'NotAllowedError') {
+            msg = '🎙️ Mic permission DENIED! Click 🔒 in address bar → Allow Microphone → Reload page';
+          } else if (err?.name === 'NotFoundError') {
+            msg = '❌ No microphone found! Plug in mic and try again';
+          } else if (err?.name === 'NotReadableError') {
+            msg = '❌ Mic is used by another app! Close Zoom/Meet and try again';
+          }
+          setErrorMessage(msg);
+          setLastReply(msg);
+          setVoiceState('idle');
+          return;
         }
-      } catch (err: any) {
-        console.error('Mic permission denied', err);
-        setErrorMessage(
-          'Microphone access blocked. Click "Allow" in browser permissions or type your question below.'
-        );
+      }
+
+      if (!stream) {
+        setErrorMessage('Mic needs Chrome + HTTPS. You can also type queries in the box below!');
         setVoiceState('idle');
         return;
       }
-    }
 
-    if (!stream) {
-      setErrorMessage('Mic needs Chrome + HTTPS. You can also type queries in the box below!');
-      setVoiceState('idle');
-      return;
-    }
-
-    // 2. Initialize Web Audio API Analyser for real-time waveform visualization and volume detection
-    try {
-      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) {
-          const ctx = new AudioCtx();
-          audioContextRef.current = ctx;
+      // 4. Initialize Web Audio API Analyser for real-time waveform visualization
+      try {
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioCtx) {
+            audioContextRef.current = new AudioCtx();
+          }
         }
-      }
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-
-      if (audioContextRef.current && (!analyserRef.current || !sourceNodeRef.current)) {
-        const analyser = audioContextRef.current.createAnalyser();
-        analyser.fftSize = 64;
-        analyser.smoothingTimeConstant = 0.8;
-        const source = audioContextRef.current.createMediaStreamSource(stream);
-        source.connect(analyser);
-
-        analyserRef.current = analyser;
-        sourceNodeRef.current = source;
-      }
-    } catch (audioErr: any) {
-      console.warn('AudioContext init warning:', audioErr);
-    }
-
-    // 3. Initialize MediaRecorder for high-fidelity audio capture (universal fallback)
-    try {
-      audioChunksRef.current = [];
-      const supportedMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-        ? 'audio/ogg;codecs=opus'
-        : undefined;
-
-      const mediaRecorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
         }
-      };
-      mediaRecorder.start(100);
-      mediaRecorderRef.current = mediaRecorder;
-    } catch (recErr) {
-      console.warn('MediaRecorder start notice:', recErr);
-    }
-
-    setVoiceState('listening');
-    activeRef.current = true;
-
-    // 4. Start Web Speech Recognition if available (for real-time streaming preview)
-    try {
-      if (recognitionRef.current && activeRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {}
+        if (audioContextRef.current && (!analyserRef.current || !sourceNodeRef.current)) {
+          const analyser = audioContextRef.current.createAnalyser();
+          analyser.fftSize = 64;
+          analyser.smoothingTimeConstant = 0.8;
+          const source = audioContextRef.current.createMediaStreamSource(stream);
+          source.connect(analyser);
+          analyserRef.current = analyser;
+          sourceNodeRef.current = source;
+        }
+      } catch (audioErr: any) {
+        console.warn('AudioContext init warning:', audioErr);
       }
 
-      if (isSpeechRecognitionSupported()) {
+      // 5. Initialize MediaRecorder for universal audio capture
+      try {
+        audioChunksRef.current = [];
+        const supportedMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+          ? 'audio/ogg;codecs=opus'
+          : undefined;
+
+        const mediaRecorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+        mediaRecorder.start(100);
+        mediaRecorderRef.current = mediaRecorder;
+      } catch (recErr) {
+        console.warn('MediaRecorder start notice:', recErr);
+      }
+
+      setVoiceState('listening');
+      activeRef.current = true;
+
+      // 6. Start SpeechRecognition (or fallback to 5s MediaRecorder + Whisper)
+      if (SpeechRecognition) {
+        if (recognitionRef.current && activeRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch {}
+        }
+
         const selectedLanguage = langCode || currentLangConfig.speechCode || 'en-IN';
         const recognition = createSpeechRecognition(selectedLanguage);
         if (recognition) {
-          // ─── CRITICAL settings for LIVE typing ─────────────────────────
-          recognition.continuous = true;      // keep running so interim fires
-          recognition.interimResults = true;  // MUST be true for live typing
+          recognition.continuous = false;
+          recognition.interimResults = true;
           recognition.lang = selectedLanguage;
           recognition.maxAlternatives = 1;
-          // ───────────────────────────────────────────────────────────────
           recognitionRef.current = recognition;
 
           let retryCount = 0;
-          const MAX_RETRY = 3;
 
           recognition.onstart = () => {
             retryCount = 0;
-            console.log('[AGNI Voice] Started');
+            setVoiceState('listening');
+            console.log('🎙️ Recognition started');
           };
-
-          let accumulatedFinal = '';
 
           recognition.onresult = (event: any) => {
             hasSpokenRef.current = true;
             let interim = '';
+            let finalChunk = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const chunk = event.results[i][0].transcript;
               if (event.results[i].isFinal) {
-                accumulatedFinal += chunk + ' ';
+                finalChunk += chunk + ' ';
               } else {
                 interim += chunk + ' ';
               }
             }
-            const liveText = (accumulatedFinal + interim).trim();
-            console.log('[SiriOverlay STT] LIVE:', liveText);
+            const liveText = (finalChunk || interim).trim();
+            if (!liveText) return;
 
-            // ── Update React state ────────────────────────────────────────
-            if (setTypedInput) setTypedInput(liveText);
-            if (setTranscript) setTranscript(liveText);
+            console.log('Heard:', liveText);
+            setTypedInput(liveText);
+            setTranscript(liveText);
             transcriptRef.current = liveText;
 
-            // ── CRITICAL: Direct DOM push so bottom box types LIVE ────────
             try {
               const selectors = [
                 '#mini-voice-box-text-input',
@@ -502,64 +606,66 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
               });
             } catch {}
 
-            // On final chunk, start silence timer to auto-submit
-            if (accumulatedFinal.trim()) {
-              if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-              silenceTimerRef.current = setTimeout(() => {
-                if (activeRef.current && transcriptRef.current.trim()) {
-                  const readyPrompt = transcriptRef.current.trim();
-                  stopListening();
-                  handleProcessQuery(readyPrompt);
-                }
-              }, 2200);
+            if (event.results[event.results.length - 1]?.isFinal) {
+              const readyPrompt = liveText;
+              stopListening();
+              handleProcessQuery(readyPrompt);
             }
           };
 
           recognition.onerror = (event: any) => {
-            console.log("[AGNI Voice] Error:", event.error, event);
             const errType = event.error || 'unknown';
-            console.warn('AGNI Voice SpeechRecognition event info:', errType);
-
-            if (errType === 'network') {
-              if (retryCount < 1) {
-                retryCount++;
-                console.warn('[AGNI Voice] WebSpeech network hiccup, retrying once silently...');
-                setTimeout(() => {
-                  if (activeRef.current && recognitionRef.current) {
-                    try { recognitionRef.current.start(); } catch (e) {}
-                  }
-                }, 1000);
-                return;
-              } else {
-                // Rely cleanly on active MediaRecorder + Groq Whisper fallback
-                console.warn('[AGNI Voice] WebSpeech network unavailable, using Groq Whisper audio capture');
-                return;
-              }
-            }
+            console.error('Recognition error:', errType, event);
 
             if (errType === 'not-allowed' || errType === 'service-not-allowed' || errType === 'permission-denied') {
-              console.error('Mic permission denied');
-              const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
+              const msg = '🎙️ Allow mic in Chrome: Click 🔒 → Microphone → Allow';
               const statusEl = document.getElementById('live-voice-status');
               if (statusEl) statusEl.textContent = msg;
               setErrorMessage(msg);
+              setLastReply(msg);
               stopListening();
-              return;
+            } else if (errType === 'no-speech') {
+              setErrorMessage('Did not hear you, try again! 🎙️');
+              stopListening();
+            } else if (errType === 'network') {
+              retryCount++;
+              // DO NOT restart on network - prevents infinite loop
+              console.log('Network error - stopping, not restarting (retryCount:', retryCount, ')');
+              stopListening();
+              startMediaRecorderFallback();
+            } else if (errType !== 'aborted') {
+              setErrorMessage('Mic error: ' + errType);
+              stopListening();
             }
           };
 
           recognition.onend = () => {
-            // If active and user spoke, auto submit
-            if (activeRef.current && hasSpokenRef.current && !isTranscribingRef.current) {
-              finishListeningAndSubmit();
+            console.log('Recognition ended, retryCount:', retryCount);
+            if (retryCount > 0) {
+              console.log('Stopping due to network/retry limit');
+              return;
+            }
+            if (activeRef.current && hasSpokenRef.current && transcriptRef.current.trim()) {
+              const readyPrompt = transcriptRef.current.trim();
+              stopListening();
+              handleProcessQuery(readyPrompt);
+            } else if (activeRef.current) {
+              setVoiceState('idle');
+              activeRef.current = false;
             }
           };
 
           recognition.start();
+        } else {
+          startMediaRecorderFallback();
         }
+      } else {
+        startMediaRecorderFallback();
       }
-    } catch (speechErr: any) {
-      console.warn('SpeechRecognition initiation note:', speechErr);
+    } catch (e: any) {
+      console.error('startMic fatal:', e);
+      setErrorMessage('❌ Mic failed: ' + (e?.message || String(e)));
+      setVoiceState('idle');
     }
   };
 
@@ -713,9 +819,54 @@ export const SiriVoiceOverlay: React.FC<SiriVoiceOverlayProps> = ({
     };
     setDialogueHistory((prev) => [...prev, userItem]);
 
-    // Check Local Device Intents FIRST (WhatsApp, YouTube, Google, Email)
+    // Check Local Device Intents FIRST (Document Generation, WhatsApp, YouTube, Google, Email)
     const localIntent = parseLocalJarvisIntent(cleanQuery);
     if (localIntent) {
+      if (localIntent.actionTaken === 'generate_document' && localIntent.documentIntent) {
+        const lastAgniItem = [...dialogueHistory].reverse().find((d) => d.speaker === 'agni');
+        const docResult = await generateAndDownloadDocument({
+          userRequest: cleanQuery,
+          intent: localIntent.documentIntent,
+          existingContent: lastAgniItem?.text || lastReply,
+          conversationMessages: dialogueHistory.map((d) => ({
+            role: d.speaker === 'user' ? 'user' : 'model',
+            text: d.text,
+          })),
+          mode: 'voice',
+          userPreferences,
+          authUser: authUser
+            ? { name: authUser.name, email: authUser.email, isFounder: authUser.isFounder }
+            : undefined,
+        });
+
+        const reply = docResult.message;
+        setLastReply(reply);
+        const agniItem: VoiceDialogueItem = {
+          id: `agni-${Date.now()}`,
+          speaker: 'agni',
+          text: reply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isPodcast: false,
+        };
+        setDialogueHistory((prev) => [...prev, agniItem]);
+        streamText(reply);
+        if (shouldSpeak) {
+          setVoiceState('speaking');
+          const cleanSpeech = reply.replace(/\*\*/g, '').replace(/[✅⚠️]/g, '').trim();
+          speakText(cleanSpeech, {
+            rate: voiceSpeed,
+            pitch: 1.05,
+            volume: 1.0,
+            profile: userPreferences.voiceProfile || 'natural-warm',
+            lang: currentLangConfig.speechCode || 'en-IN',
+            onEnd: () => setVoiceState('idle'),
+          });
+        } else {
+          setVoiceState('idle');
+        }
+        return;
+      }
+
       const reply = localIntent.displayText || localIntent.speechText;
       setLastReply(reply);
       const agniItem: VoiceDialogueItem = {

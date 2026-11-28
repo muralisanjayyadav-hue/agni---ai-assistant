@@ -51,6 +51,8 @@ import { DiagnosticsHub } from './components/DiagnosticsHub';
 import { AgniTestHub } from './components/AgniTestHub';
 import { runAgniDiagnostics } from './lib/agniDiagnostics';
 import { runFullAgniTests } from './lib/agniTestSuite';
+import { detectDocumentIntent } from './utils/documentIntents';
+import { generateAndDownloadDocument } from './utils/exportDocuments';
 import { Volume2, Sparkles, Radio, Square, Shield, Heart, Flame } from 'lucide-react';
 import {
   TabMode,
@@ -870,6 +872,40 @@ export default function App() {
     setIsHeartCareLoading(true);
 
     try {
+      const docIntent = detectDocumentIntent(text);
+      if (docIntent.isDocumentRequest) {
+        const lastModelText = [...currentMsgs].reverse().find((m) => m.role !== 'user')?.text;
+        const docResult = await generateAndDownloadDocument({
+          userRequest: text,
+          intent: docIntent,
+          existingContent: lastModelText,
+          conversationMessages: currentMsgs.map((m) => ({ role: m.role, text: m.text })),
+          mode: 'heart',
+          userPreferences,
+          authUser: authUser
+            ? { name: authUser.name, email: authUser.email, isFounder: authUser.isFounder }
+            : undefined,
+        });
+
+        const docReplyMsg: ChatMessage = {
+          id: `heart-doc-${Date.now()}`,
+          role: 'model',
+          text: docResult.message,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setHeartCareMessages((prev) => [...prev, docReplyMsg]);
+
+        if (userPreferences.voiceEnabled) {
+          speakText(getSpokenSnippet(docResult.message), {
+            rate: 0.94,
+            pitch: 1.02,
+            volume: 1.0,
+            profile: 'natural-warm',
+          });
+        }
+        return;
+      }
+
       const data = await apiFetch<{ text?: string; reply?: string; suggestedMemories?: string[] }>('/api/heart', {
         method: 'POST',
         body: JSON.stringify({
@@ -1249,6 +1285,35 @@ export default function App() {
     setIsChatLoading(true);
 
     try {
+      const docIntent = detectDocumentIntent(text);
+      if (docIntent.isDocumentRequest) {
+        const lastModelText = [...currentMsgs].reverse().find((m) => m.role !== 'user')?.text;
+        const docResult = await generateAndDownloadDocument({
+          userRequest: text,
+          intent: docIntent,
+          existingContent: lastModelText,
+          conversationMessages: currentMsgs.map((m) => ({ role: m.role, text: m.text })),
+          mode: 'chat',
+          userPreferences,
+          authUser: authUser
+            ? { name: authUser.name, email: authUser.email, isFounder: authUser.isFounder }
+            : undefined,
+        });
+
+        const docReplyMsg: ChatMessage = {
+          id: `doc-${Date.now()}`,
+          role: 'model',
+          text: docResult.message,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, docReplyMsg]);
+
+        if (userPreferences.voiceEnabled) {
+          speakText(getSpokenSnippet(docResult.message));
+        }
+        return;
+      }
+
       const data = await apiFetch<{ text?: string; reply?: string; suggestedMemories?: string[] }>('/api/chat', {
         method: 'POST',
         body: JSON.stringify({
@@ -1368,10 +1433,41 @@ export default function App() {
     const realIndex = messages.length - 1 - lastUserIndex;
 
     const trimmed = messages.slice(0, realIndex + 1);
+    const retryText = trimmed[trimmed.length - 1]?.text || '';
+    const priorMsgs = trimmed.slice(0, -1);
     setMessages(trimmed);
     setIsChatLoading(true);
 
     try {
+      const docIntent = detectDocumentIntent(retryText);
+      if (docIntent.isDocumentRequest) {
+        const lastModelText = [...priorMsgs].reverse().find((m) => m.role !== 'user')?.text;
+        const docResult = await generateAndDownloadDocument({
+          userRequest: retryText,
+          intent: docIntent,
+          existingContent: lastModelText,
+          conversationMessages: priorMsgs.map((m) => ({ role: m.role, text: m.text })),
+          mode: 'chat',
+          userPreferences,
+          authUser: authUser
+            ? { name: authUser.name, email: authUser.email, isFounder: authUser.isFounder }
+            : undefined,
+        });
+
+        const docReplyMsg: ChatMessage = {
+          id: `doc-${Date.now()}`,
+          role: 'model',
+          text: docResult.message,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, docReplyMsg]);
+
+        if (userPreferences.voiceEnabled) {
+          speakText(getSpokenSnippet(docResult.message));
+        }
+        return;
+      }
+
       const data = await apiFetch<{ text?: string; reply?: string; suggestedMemories?: string[] }>('/api/chat', {
         method: 'POST',
         body: JSON.stringify({

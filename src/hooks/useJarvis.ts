@@ -10,6 +10,7 @@ import { runSystemCommand } from '../lib/agniDesktop';
 import { runAgniDiagnostics } from '../lib/agniDiagnostics';
 import { runFullAgniTests } from '../lib/agniTestSuite';
 import { parseLocalJarvisIntent, processJarvisCommand } from '../utils/jarvisCommands';
+import { generateAndDownloadDocument } from '../utils/exportDocuments';
 
 export interface UseJarvisReturn {
   isListening: boolean;
@@ -39,8 +40,13 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
   const shouldListenRef = useRef<boolean>(true);
   const isSpeakingRef = useRef<boolean>(false);
   const isThinkingRef = useRef<boolean>(false);
+  const jarvisReplyRef = useRef<string>(jarvisReply);
   const onNavigateRef = useRef(onNavigate);
   const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    jarvisReplyRef.current = jarvisReply;
+  }, [jarvisReply]);
 
   // Audio capture & fallback references
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -157,6 +163,27 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       // Check for Local Device Intents FIRST (works offline & before Groq)
       const localIntent = parseLocalJarvisIntent(cleanInput);
       if (localIntent) {
+        if (localIntent.actionTaken === 'generate_document' && localIntent.documentIntent) {
+          setIsThinking(true);
+          isThinkingRef.current = true;
+          setJarvisReply(localIntent.displayText);
+
+          const docResult = await generateAndDownloadDocument({
+            userRequest: cleanInput,
+            intent: localIntent.documentIntent,
+            existingContent: jarvisReplyRef.current,
+            mode: 'jarvis',
+          });
+
+          setJarvisReply(docResult.message);
+          setLastAction(docResult.success ? 'generate_document' : 'generate_document_error');
+          setIsThinking(false);
+          isThinkingRef.current = false;
+          const cleanSpeech = docResult.message.replace(/\*\*/g, '').replace(/[✅⚠️]/g, '').trim();
+          speakAloud(cleanSpeech);
+          return;
+        }
+
         setJarvisReply(localIntent.displayText || localIntent.speechText);
         setLastAction(localIntent.actionTaken);
         setIsThinking(false);
@@ -362,10 +389,31 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
 
   // Acquire microphone stream & initialize AnalyserNode
   const ensureMediaStream = useCallback(async (): Promise<MediaStream | null> => {
+    if (
+      typeof window !== 'undefined' &&
+      location.protocol !== 'https:' &&
+      location.hostname !== 'localhost' &&
+      location.hostname !== '127.0.0.1'
+    ) {
+      const msg = '❌ Mic needs HTTPS! Please use https:// or localhost. Current: ' + location.protocol;
+      console.error(msg);
+      setMicPermission('denied');
+      setJarvisReply(msg);
+      return null;
+    }
+
     if (mediaStreamRef.current && mediaStreamRef.current.active) {
       return mediaStreamRef.current;
     }
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    const hasSpeechRec =
+      typeof window !== 'undefined' &&
+      ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+    if (typeof navigator === 'undefined' || (!hasSpeechRec && !navigator.mediaDevices?.getUserMedia)) {
+      setMicPermission('denied');
+      setJarvisReply('❌ Mic not supported in this browser. Use Chrome latest!');
+      return null;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
       setMicPermission('denied');
       setJarvisReply('Mic needs Chrome + HTTPS');
       return null;
@@ -381,6 +429,7 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
       });
       mediaStreamRef.current = stream;
       setMicPermission('granted');
+      console.log('✅ Mic permission granted, stream:', stream.id);
 
       // Initialize Web Audio API AnalyserNode for volume / waveform
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -405,11 +454,87 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
 
       return stream;
     } catch (err: any) {
-      console.warn('[Jarvis] getUserMedia error:', err);
+      console.error('getUserMedia error:', err);
+      if (err?.name === 'NotAllowedError') {
+        setJarvisReply('🎙️ Mic permission DENIED! Click 🔒 in address bar → Allow Microphone → Reload page');
+      } else if (err?.name === 'NotFoundError') {
+        setJarvisReply('❌ No microphone found! Plug in mic and try again');
+      } else if (err?.name === 'NotReadableError') {
+        setJarvisReply('❌ Mic is used by another app! Close Zoom/Meet and try again');
+      } else {
+        setJarvisReply(`❌ Mic error: ${err?.name || 'Error'} - ${err?.message || 'Unknown'}. Try Chrome + HTTPS`);
+      }
       setMicPermission('denied');
       return null;
     }
   }, []);
+
+  // 5-second MediaRecorder -> /api/transcribe backup fallback
+  const startMediaRecorderFallback = useCallback(async () => {
+    try {
+      console.log('🎙️ [Jarvis] Starting MediaRecorder Whisper fallback...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/webm';
+      const recorder = new MediaRecorder(stream, MediaRecorder.isTypeSupported(mimeType) ? { mimeType } : undefined);
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = async () => {
+        setIsListening(false);
+        const audioBlob = new Blob(chunks, { type: recorder.mimeType || mimeType });
+        stream.getTracks().forEach((t) => t.stop());
+        if (audioBlob.size < 300) {
+          setJarvisReply('Did not hear you, try again! 🎙️');
+          return;
+        }
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          try {
+            const base64Audio = (reader.result as string) || '';
+            const res = await fetch('/api/transcribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audioBase64: base64Audio,
+                mimeType: recorder.mimeType || mimeType,
+                language: 'en',
+              }),
+            });
+            const data = await res.json();
+            const text = (data.text || data.transcription || '').trim();
+            if (text) {
+              console.log('✅ [Jarvis] Backup Whisper Heard:', text);
+              setYouSaid(text);
+              submitCommand(text);
+            } else {
+              setJarvisReply('Did not hear you, try again! 🎙️');
+            }
+          } catch (err) {
+            console.error('[Jarvis] Backup transcribe failed:', err);
+            setJarvisReply('❌ Backup mic also failed. Use typing box below!');
+          }
+        };
+      };
+      recorder.start();
+      setIsListening(true);
+      setJarvisReply('🎙️ Listening via backup mic (5 sec)... Speak now!');
+      setTimeout(() => {
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        }
+      }, 5000);
+    } catch (err) {
+      console.error('[Jarvis] startMediaRecorderFallback failed:', err);
+      setIsListening(false);
+      setJarvisReply('❌ Backup mic also failed. Use typing box below!');
+    }
+  }, [submitCommand]);
 
   // Transcribe recorded audio with Groq Whisper fallback
   const transcribeAudioChunks = useCallback(
@@ -703,44 +828,46 @@ export function useJarvis(onNavigate?: (path: string) => void, onClose?: () => v
         };
 
         recognition.onerror = (event: any) => {
-          console.log("[AGNI Voice] Error:", event.error, event);
-          console.debug('[Jarvis Recognition Event]', event.error);
+          console.error('Recognition error:', event.error, event);
           const err = event.error;
 
           if (err === 'network') {
-            if (retryCount < 1) {
-              retryCount++;
-              console.warn('[AGNI Voice] WebSpeech network hiccup, retrying once silently...');
-              setTimeout(() => {
-                if (shouldListenRef.current && recognitionRef.current) {
-                  try { recognitionRef.current.start(); } catch (e) {}
-                }
-              }, 1000);
-              return;
-            } else {
-              // Stop WebSpeech retry loop cleanly; MediaRecorder + Groq Whisper VAD remains active!
-              retryCount = MAX_RETRY + 1;
-              console.warn('[AGNI Voice] WebSpeech network unavailable, relying on Groq Whisper VAD');
-              return;
-            }
+            // DO NOT restart on network - prevents infinite loop
+            retryCount = MAX_RETRY + 1;
+            console.log('Network error - stopping, not restarting');
+            setIsListening(false);
+            shouldListenRef.current = false;
+            startMediaRecorderFallback();
+            return;
           }
 
           if (err === 'not-allowed' || err === 'permission-denied') {
             console.error('Mic permission denied');
-            const msg = "Mic blocked - Click lock icon in address bar and Allow mic";
+            const msg = '🎙️ Allow mic in Chrome: Click 🔒 → Microphone → Allow';
             const statusEl = document.getElementById('live-voice-status');
             if (statusEl) statusEl.textContent = msg;
+            setJarvisReply(msg);
             setMicPermission('denied');
             setIsListening(false);
             shouldListenRef.current = false;
             return;
           }
-          // On other errors (e.g. in Electron where Google Speech isn't bundled):
-          // DO NOT stop listening! MediaRecorder + Audio Energy VAD handles transcription!
+
+          if (err === 'no-speech') {
+            setJarvisReply('Did not hear you, try again! 🎙️');
+          } else if (err !== 'aborted') {
+            setJarvisReply('Mic error: ' + err);
+          }
         };
 
         recognition.onend = () => {
-          // Only restart WebSpeech if we didn't hit the network retry cap
+          console.log('Recognition ended, retryCount:', retryCount);
+          // NEVER restart if network error (prevents loop)
+          if (retryCount > 1) {
+            console.log('Stopping due to retry limit');
+            setIsListening(false);
+            return;
+          }
           if (!shouldListenRef.current) {
             setIsListening(false);
           } else if (!isSpeakingRef.current && !isThinkingRef.current && retryCount <= 1) {

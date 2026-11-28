@@ -7,6 +7,8 @@
 
 import { apiFetch } from './api';
 import { getJarvisContacts, formatIndianPhoneNumber } from '../data/jarvisContacts';
+import { detectDocumentIntent, DocumentIntent } from './documentIntents';
+import { generateAndDownloadDocument } from './exportDocuments';
 
 export interface CommandExecutionResult {
   speechText: string;
@@ -15,15 +17,29 @@ export interface CommandExecutionResult {
   navigatePath?: string;
   openUrl?: string;
   shouldClose?: boolean;
+  documentIntent?: DocumentIntent;
 }
 
 /**
  * Fast local intent parser (runs synchronously BEFORE Groq so tasks work even if network fails)
- * Handles: open WhatsApp, play on YouTube, search Google, send Email
+ * Handles: Document generation (PDF/PPTX/DOCX), open WhatsApp, play on YouTube, search Google, send Email
  */
 export function parseLocalJarvisIntent(rawInput: string): CommandExecutionResult | null {
   const trimmed = (rawInput || '').trim();
   if (!trimmed) return null;
+
+  // 0. Universal Document Generation Intent (runs BEFORE unrelated handlers)
+  const docIntent = detectDocumentIntent(trimmed);
+  if (docIntent.isDocumentRequest) {
+    const formatLabel = docIntent.format ? docIntent.format.toUpperCase() : 'document';
+    return {
+      speechText: `Preparing your ${formatLabel} document now, Sir.`,
+      displayText: `Generating ${formatLabel} document...`,
+      actionTaken: 'generate_document',
+      documentIntent: docIntent,
+    };
+  }
+
   const lower = trimmed.toLowerCase().replace(/[?.!,]+$/g, '').trim();
 
   // 1. Open WhatsApp ("open whatsapp", "whatsapp kholo", "jarvis open whatsapp")
@@ -100,6 +116,7 @@ const APP_URL_MAP: Record<string, { web: string; androidPkg?: string }> = {
   gmail: { web: 'https://mail.google.com/', androidPkg: 'com.google.android.gm' },
   facebook: { web: 'https://www.facebook.com/', androidPkg: 'com.facebook.katana' },
   telegram: { web: 'https://web.telegram.org/', androidPkg: 'org.telegram.messenger' },
+  github: { web: 'https://github.com/' },
   playstore: { web: 'https://play.google.com/store', androidPkg: 'com.android.vending' },
   'play store': { web: 'https://play.google.com/store', androidPkg: 'com.android.vending' },
   settings: { web: 'about:blank', androidPkg: 'com.android.settings' },
@@ -172,9 +189,26 @@ export async function processJarvisCommand(rawInput: string): Promise<CommandExe
   const trimmed = rawInput.trim();
   const lower = trimmed.toLowerCase();
 
-  // Strip prefixes like "jarvis,", "hey jarvis,", "hey jarvis", "jarvis"
+  // 0. Universal Document Generation Intent
+  const docIntent = detectDocumentIntent(trimmed);
+  if (docIntent.isDocumentRequest) {
+    const docResult = await generateAndDownloadDocument({
+      userRequest: trimmed,
+      intent: docIntent,
+      mode: 'jarvis',
+    });
+    const cleanSpeech = docResult.message.replace(/\*\*/g, '').replace(/[✅⚠️]/g, '').trim();
+    return {
+      speechText: cleanSpeech,
+      displayText: docResult.message,
+      actionTaken: docResult.success ? 'generate_document' : 'generate_document_error',
+    };
+  }
+
+  // Strip prefixes like "jarvis,", "hey jarvis,", "hey jarvis", "jarvis" and trailing punctuation
   const clean = lower
     .replace(/^(hey\s+)?jarvis[\s,:]*/i, '')
+    .replace(/[.?!,]+$/g, '')
     .trim();
 
   // 1. WAKE WORD ONLY ("Hey Jarvis" / "Jarvis")
